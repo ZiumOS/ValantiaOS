@@ -39,42 +39,40 @@ jobs:
                 apt-get install -y --no-install-recommends \
                   live-build ca-certificates python3-pil fonts-dejavu-core
 
-              # Generate branded splash image
+              set -eux
+              
+              # Generate ValantiaOS splash
               python3 branding/grub/make-splash.py
               
-              # Start from Debian's original GRUB bootloader files
-              mkdir -p config/bootloaders/grub-pc
-              cp -a /usr/share/live/build/bootloaders/grub-pc/. \
-                config/bootloaders/grub-pc/
+              # Keep Debian's default bootloader configuration intact.
+              # Override only the theme files.
+              mkdir -p config/bootloaders/grub-pc/live-theme
               
-              # Install ValantiaOS background
+              # Copy the default theme from Debian's installed live-build package.
+              cp -a \
+                /usr/share/live/build/bootloaders/grub-pc/live-theme/. \
+                config/bootloaders/grub-pc/live-theme/
+              
+              # Use our custom background in GRUB's expected location.
               cp branding/grub/splash.png \
                 config/bootloaders/grub-pc/splash.png
               
-              # Brand the existing GRUB theme without replacing its boot entries
+              # Update the existing theme title.
               python3 - <<'PY'
               from pathlib import Path
+              import re
               
               p = Path("config/bootloaders/grub-pc/live-theme/theme.txt")
               s = p.read_text()
               
-              replacements = {
-                  "title-text": '"VALANTIAOS"',
-                  "title-color": '"#F5F6FF"',
-              }
-              
-              for key, value in replacements.items():
-                  import re
-                  pattern = rf"(?m)^\s*{re.escape(key)}\s*:.*$"
-                  line = f"{key}: {value}"
-              
-                  if re.search(pattern, s):
-                      s = re.sub(pattern, line, s)
-                  else:
-                      s += f"\n{line}\n"
+              s = re.sub(
+                  r'(?m)^\s*title-text\s*:.*$',
+                  'title-text: "VALANTIAOS"',
+                  s
+              )
               
               p.write_text(s)
-              print("Applied ValantiaOS GRUB branding.")
+              print("ValantiaOS GRUB theme prepared.")
               PY
 
               lb config \

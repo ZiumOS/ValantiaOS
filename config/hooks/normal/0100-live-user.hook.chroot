@@ -2,7 +2,7 @@
 set -e
 
 # Set password for the live session
-echo 'live:valantia123' | chpasswd
+echo 'live:live' | chpasswd
 
 # Allow sudo for the live user
 usermod -aG sudo live
