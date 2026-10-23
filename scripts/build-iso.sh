@@ -10,9 +10,10 @@ set -Eeuo pipefail
 
 ISO_NAME="ValantiaOS-0.1.0-amd64.iso"
 
+ROOT_DIR="$(pwd)"
 KERNEL_VERSION="7.2.12"
 KERNEL_JOBS="$(($(nproc) > 2 ? $(nproc) - 2 : 1))"
-KERNEL_BUILD_DIR="${PWD}/.cache/linux-${KERNEL_VERSION}"
+KERNEL_BUILD_DIR="${ROOT_DIR}/.cache/linux-${KERNEL_VERSION}"
 
 apt-get update
 
@@ -41,7 +42,7 @@ make CC=gcc bindeb-pkg -j"${KERNEL_JOBS}" LOCALVERSION=-valantia-kern KDEB_PKGVE
 mkdir -p /tmp/valantia-kernel-debs
 find "${KERNEL_BUILD_DIR}" -type f -name '*.deb' -exec cp {} /tmp/valantia-kernel-debs/ \;
 test -n "$(find /tmp/valantia-kernel-debs -maxdepth 1 -type f -name 'linux-image-*.deb' -print -quit)"
-cd -
+cd "${ROOT_DIR}"
 rm -f config/packages.chroot/*.deb
 mkdir -p config/packages.chroot
 cp /tmp/valantia-kernel-debs/*.deb config/packages.chroot/
@@ -52,11 +53,11 @@ for executable in \
   config/includes.chroot/usr/bin/valantia-store \
   config/includes.chroot/usr/bin/valantia-store-helper \
   config/includes.chroot/usr/bin/valantia-welcome; do
-  if [[ -f "${executable}" ]]; then
-    chmod 0755 "${executable}"
-  else
-    printf 'Warning: optional desktop app is not in this checkout: %s\\n' "${executable}" >&2
+  if [[ ! -f "${executable}" ]]; then
+    printf 'Error: required Valantia app is missing: %s\\n' "${executable}" >&2
+    exit 1
   fi
+  chmod 0755 "${executable}"
 done
 
 # Configure Flathub as a system-wide Flatpak remote in the live image.

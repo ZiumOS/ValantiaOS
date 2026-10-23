@@ -6,7 +6,14 @@ xfce4-terminal
 lightdm
 lightdm-gtk-greeter
 
-# Debian kernel package is built from the pinned PsyCachy source in scripts/build-iso.sh.
+# Valantia desktop apps: GTK runtime, PolicyKit authorization, and controls.
+python3-gi
+gir1.2-gtk-3.0
+polkitd
+pkexec
+power-profiles-daemon
+pavucontrol
+pciutils
 
 # Network and basic utilities
 network-manager
