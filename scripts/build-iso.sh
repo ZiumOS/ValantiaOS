@@ -41,6 +41,12 @@ fi
 cd "${KERNEL_BUILD_DIR}/src/linux-${KERNEL_VERSION}"
 make defconfig
 scripts/config --set-str LOCALVERSION "-valantia-kern"
+# Debian Live needs overlayfs to assemble the writable live root. Ensure the
+# custom kernel provides it and the squashfs/loop devices used by the image.
+scripts/config --enable OVERLAY_FS
+scripts/config --enable SQUASHFS
+scripts/config --enable SQUASHFS_XZ
+scripts/config --enable BLK_DEV_LOOP
 make olddefconfig
 make CC=gcc bindeb-pkg -j"${KERNEL_JOBS}" KDEB_PKGVERSION="${KERNEL_VERSION}-1" KDEB_CHANGELOG_DIST=trixie
 
