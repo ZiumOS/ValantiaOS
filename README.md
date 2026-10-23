@@ -25,7 +25,7 @@ ValantiaOS Gaming is an experimental Debian-based live Linux distribution focuse
 
 ## Build
 
-The ISO is built in a Debian Trixie environment using `live-build`.
+The ISO is built in a Debian Trixie container using `live-build`. The GitHub Actions workflow runs `scripts/build-iso.sh`; it also generates the branded GRUB splash and checksum.
 
 To build through GitHub Actions:
 
@@ -33,6 +33,28 @@ To build through GitHub Actions:
 2. Select **Build ValantiaOS Gaming**.
 3. Click **Run workflow**.
 4. Download the ISO artifact when the job succeeds.
+
+To build locally, run the same build script in a Debian Trixie container from the repository root:
+
+```sh
+docker run --privileged --rm \\
+  -v "$PWD:/work" \\
+  -w /work \\
+  debian:trixie \\
+  bash -euxo pipefail scripts/build-iso.sh
+```
+
+The ISO and `SHA256SUMS` are written to `output/`.
+
+## Live Session
+
+The default live account is:
+
+- Username: `user`
+- Password: `live`
+- Sudo: passwordless
+
+The account is created at boot by `live-config`; the `user-setup` package is included explicitly because the build disables APT recommends.
 
 ## Testing Status
 

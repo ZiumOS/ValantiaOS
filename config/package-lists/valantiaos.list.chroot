@@ -14,6 +14,11 @@ curl
 vim-tiny
 firefox-esr
 
+# live-config creates the live user at *boot* time (not build time) via its
+# user-setup component, which exits early unless this package is installed.
+# It is only a Recommends of live-config, so --apt-recommends false drops it.
+user-setup
+
 # Graphics and Vulkan
 mesa-vulkan-drivers
 vulkan-tools

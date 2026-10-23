@@ -1,8 +1,0 @@
-#!/bin/sh
-set -e
-
-# Set password for the live session
-echo 'live:live' | chpasswd
-
-# Allow sudo for the live user
-usermod -aG sudo live
