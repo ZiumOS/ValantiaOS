@@ -70,6 +70,7 @@ for executable in \
   fi
   chmod 0755 "${executable}"
 done
+chmod 0755 config/hooks/normal/0100-enable-graphical-session.hook.chroot
 
 # Configure Flathub as a system-wide Flatpak remote in the live image.
 mkdir -p config/hooks/normal

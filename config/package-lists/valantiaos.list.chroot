@@ -1,7 +1,13 @@
 
 # ValantiaOS - XFCE base
+xorg
 xserver-xorg
+xserver-xorg-core
+xserver-xorg-input-libinput
+xserver-xorg-video-fbdev
+xinit
 xfce4
+xfce4-session
 xfce4-terminal
 lightdm
 lightdm-gtk-greeter
@@ -9,6 +15,9 @@ lightdm-gtk-greeter
 # Valantia desktop apps: GTK runtime, PolicyKit authorization, and controls.
 python3-gi
 gir1.2-gtk-3.0
+dbus-x11
+libgl1-mesa-dri
+polkit-1
 polkitd
 pkexec
 power-profiles-daemon
