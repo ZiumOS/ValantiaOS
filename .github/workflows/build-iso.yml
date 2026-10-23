@@ -7,7 +7,9 @@ on:
     branches:
       - main
     paths:
+      - "branding/**"
       - "config/**"
+      - "scripts/**"
       - ".github/workflows/build-iso.yml"
 
 permissions:
@@ -32,72 +34,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/work" \
             -w /work \
             debian:trixie \
-            bash -euxo pipefail -c '
-              apt-get update
-
-              DEBIAN_FRONTEND=noninteractive \
-                apt-get install -y --no-install-recommends \
-                  live-build ca-certificates python3-pil fonts-dejavu-core
-
-              set -eux
-              
-              # Generate ValantiaOS splash
-              python3 branding/grub/make-splash.py
-              
-              # Keep Debian's default bootloader configuration intact.
-              # Override only the theme files.
-              mkdir -p config/bootloaders/grub-pc/live-theme
-              
-              # Copy the default theme from Debian's installed live-build package.
-              cp -a \
-                /usr/share/live/build/bootloaders/grub-pc/live-theme/. \
-                config/bootloaders/grub-pc/live-theme/
-              
-              # Use our custom background in GRUB's expected location.
-              cp branding/grub/splash.png \
-                config/bootloaders/grub-pc/splash.png
-              
-              # Update the existing theme title.
-              python3 - <<'PY'
-              from pathlib import Path
-              import re
-              
-              p = Path("config/bootloaders/grub-pc/live-theme/theme.txt")
-              s = p.read_text()
-              
-              s = re.sub(
-                  r'(?m)^\s*title-text\s*:.*$',
-                  'title-text: "VALANTIAOS"',
-                  s
-              )
-              
-              p.write_text(s)
-              print("ValantiaOS GRUB theme prepared.")
-              PY
-
-              lb config \
-                --distribution trixie \
-                --architectures amd64 \
-                --binary-image iso-hybrid \
-                --archive-areas \
-                  "main contrib non-free non-free-firmware" \
-                --apt-recommends false
-
-              lb build
-
-              test -s live-image-amd64.hybrid.iso
-
-              mkdir -p output
-
-              cp live-image-amd64.hybrid.iso \
-                output/ValantiaOS-Gaming-0.1.0-amd64.iso
-
-              cd output
-
-              sha256sum \
-                ValantiaOS-Gaming-0.1.0-amd64.iso \
-                > SHA256SUMS
-            '
+            bash -euxo pipefail scripts/build-iso.sh
 
       - name: Upload ISO artifact
         if: success()
