@@ -37,7 +37,45 @@ jobs:
 
               DEBIAN_FRONTEND=noninteractive \
                 apt-get install -y --no-install-recommends \
-                  live-build ca-certificates
+                  live-build ca-certificates python3-pil fonts-dejavu-core
+
+              # Generate branded splash image
+              python3 branding/grub/make-splash.py
+              
+              # Start from Debian's original GRUB bootloader files
+              mkdir -p config/bootloaders/grub-pc
+              cp -a /usr/share/live/build/bootloaders/grub-pc/. \
+                config/bootloaders/grub-pc/
+              
+              # Install ValantiaOS background
+              cp branding/grub/splash.png \
+                config/bootloaders/grub-pc/splash.png
+              
+              # Brand the existing GRUB theme without replacing its boot entries
+              python3 - <<'PY'
+              from pathlib import Path
+              
+              p = Path("config/bootloaders/grub-pc/live-theme/theme.txt")
+              s = p.read_text()
+              
+              replacements = {
+                  "title-text": '"VALANTIAOS"',
+                  "title-color": '"#F5F6FF"',
+              }
+              
+              for key, value in replacements.items():
+                  import re
+                  pattern = rf"(?m)^\s*{re.escape(key)}\s*:.*$"
+                  line = f"{key}: {value}"
+              
+                  if re.search(pattern, s):
+                      s = re.sub(pattern, line, s)
+                  else:
+                      s += f"\n{line}\n"
+              
+              p.write_text(s)
+              print("Applied ValantiaOS GRUB branding.")
+              PY
 
               lb config \
                 --distribution trixie \
