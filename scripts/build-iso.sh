@@ -13,7 +13,7 @@ ISO_NAME="ValantiaOS-0.1.0-amd64.iso"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 KERNEL_VERSION="7.2.12"
-KERNEL_JOBS="$(($(nproc) > 2 ? $(nproc) - 2 : 1))"
+KERNEL_JOBS="$(nproc)"
 KERNEL_BUILD_DIR="${ROOT_DIR}/.cache/linux-${KERNEL_VERSION}"
 
 apt-get update
@@ -30,15 +30,15 @@ DEBIAN_FRONTEND=noninteractive \
 
 # Build the current stable upstream Linux 7.2 kernel without third-party
 # patches, then package it for inclusion in the live filesystem.
-# Avoid stale source trees and packages being reused after an interrupted build.
-rm -rf "${KERNEL_BUILD_DIR}/src/linux-${KERNEL_VERSION}"
-rm -f "${KERNEL_BUILD_DIR}/linux-${KERNEL_VERSION}.tar.xz"
-rm -rf /tmp/valantia-kernel-debs
+# Keep the extracted upstream source tree across Actions runs. The build tree is
+# intentionally not cached because generated kernel artifacts are runner-specific.
 mkdir -p "${KERNEL_BUILD_DIR}/src" /tmp/valantia-kernel-debs
-cd "${KERNEL_BUILD_DIR}"
-wget -q "https://www.kernel.org/pub/linux/kernel/v7.x/linux-${KERNEL_VERSION}.tar.xz"
-tar -xf "linux-${KERNEL_VERSION}.tar.xz" -C src
-cd "src/linux-${KERNEL_VERSION}"
+if [[ ! -f "${KERNEL_BUILD_DIR}/src/linux-${KERNEL_VERSION}/Makefile" ]]; then
+  mkdir -p "${KERNEL_BUILD_DIR}/src"
+  wget -q "https://www.kernel.org/pub/linux/kernel/v7.x/linux-${KERNEL_VERSION}.tar.xz" -O "${KERNEL_BUILD_DIR}/linux-${KERNEL_VERSION}.tar.xz"
+  tar -xf "${KERNEL_BUILD_DIR}/linux-${KERNEL_VERSION}.tar.xz" -C "${KERNEL_BUILD_DIR}/src"
+fi
+cd "${KERNEL_BUILD_DIR}/src/linux-${KERNEL_VERSION}"
 make defconfig
 scripts/config --set-str LOCALVERSION "-valantia-kern"
 make olddefconfig

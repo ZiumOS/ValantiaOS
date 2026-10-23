@@ -28,6 +28,12 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Cache upstream kernel source
+        uses: actions/cache@v4
+        with:
+          path: .cache/linux-7.2.12/src/linux-7.2.12
+          key: linux-source-7.2.12-${{ runner.os }}-${{ runner.arch }}
+
       - name: Build Debian Live ISO
         run: |
           docker run --privileged --rm \
