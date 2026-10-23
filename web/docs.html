@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f1e9">
+  <meta name="description" content="ValantiaOS Gaming documentation: try the live session, build the ISO, and understand the project's experimental status.">
+  <title>Documentation — ValantiaOS</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/site.css">
+  <script src="assets/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header"><div class="header-inner">
+    <a class="brand" href="index.html" aria-label="ValantiaOS home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Valantia<span class="brand-os">OS</span></span></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span></button>
+    <nav class="site-nav" id="site-nav" aria-label="Main navigation"><a href="index.html#about">About</a><a href="index.html#features">What's inside</a><a href="docs.html" aria-current="page">Documentation</a><a class="nav-github" href="https://github.com/ZiumOS/ValantiaOS" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a></nav>
+  </div></header>
+  <main id="main">
+    <section class="docs-hero"><p class="eyebrow"><span class="status-dot"></span> VALANTIAOS / FIELD NOTES</p><h1>Start curious.<br>Stay informed.</h1><p>What this experimental live system includes, how to try it safely, and how to build it from the source.</p></section>
+    <div class="docs-layout">
+      <nav class="docs-sidebar" aria-label="On this page"><a href="#try-it">Try the live system</a><a href="#build">Build from source</a><a href="#project-status">Project status</a><a href="#links">Project links</a></nav>
+      <div class="docs-content">
+        <section id="try-it"><h2>Try the live system</h2><p>ValantiaOS Gaming 0.1.0 is an experimental Debian 13 (Trixie) live ISO for AMD64 PCs. Booting the image lets you explore the XFCE desktop without installing it to your disk.</p><div class="notice"><strong>Early software:</strong> back up important data and test on hardware you can afford to troubleshoot. Hardware support and gaming performance are not guaranteed. The project is not an official Debian release.</div><h3>Getting an ISO</h3><p>There is no confirmed public release download link yet. When a GitHub Actions workflow run completes, its ISO and checksum are available as workflow artifacts for the configured retention period. Check the repository's <a href="https://github.com/ZiumOS/ValantiaOS/actions" target="_blank" rel="noreferrer">Actions page</a> for the latest build.</p><h3>Live session account</h3><p>The current live image is configured with the username <code>user</code> and password <code>live</code>, with passwordless sudo. This is for the live environment only; do not reuse these credentials for an installed or network-facing system.</p><h3>Booting from USB</h3><ol><li>Download the ISO artifact and verify it against the accompanying <code>SHA256SUMS</code>.</li><li>Write the image to a USB drive using a tool that supports hybrid ISO images. This erases the selected drive.</li><li>Choose the USB device in your computer's boot menu and select the live option.</li><li>Try your hardware and tools, then report reproducible problems through GitHub Issues.</li></ol></section>
+        <section id="build"><h2>Build from source</h2><p>The project builds a hybrid ISO with Debian Live's <code>live-build</code>. The GitHub Actions workflow runs the build in a privileged Debian Trixie container; local builds need a Debian-compatible environment and the required privileges.</p><h3>Install the build tools</h3><pre class="command"><code id="install-command">sudo apt-get update
+sudo apt-get install -y live-build ca-certificates python3-pil fonts-dejavu-core</code><button class="copy-button" type="button" data-copy="install-command">Copy</button></pre><h3>Configure and build</h3><p>From the repository root, generate the GRUB splash and run the live-build configuration used by CI:</p><pre class="command"><code id="build-command">python3 branding/grub/make-splash.py
+lb config \
+  --distribution trixie \
+  --architectures amd64 \
+  --binary-image iso-hybrid \
+  --archive-areas "main contrib non-free non-free-firmware" \
+  --apt-recommends false
+sudo lb build</code><button class="copy-button" type="button" data-copy="build-command">Copy</button></pre><p>Builds may need substantial disk space and network access to Debian package repositories. CI uploads the resulting ISO as an artifact; artifact availability depends on workflow status and retention settings.</p></section>
+        <section id="project-status"><h2>Project status</h2><p>ValantiaOS Gaming is an independent, experimental project. Version 0.1.0 is a work in progress, not a stable or production-ready operating system. Package availability and behavior may change between builds.</p><table class="docs-table"><thead><tr><th>Area</th><th>Current information</th></tr></thead><tbody><tr><td>Base</td><td>Debian GNU/Linux 13 (Trixie)</td></tr><tr><td>Architecture</td><td>AMD64</td></tr><tr><td>Desktop</td><td>XFCE</td></tr><tr><td>Gaming tools</td><td>GameMode, MangoHud; Mesa Vulkan support</td></tr><tr><td>Support</td><td>No hardware compatibility guarantee</td></tr></tbody></table><p>Found a build failure or a reproducible issue? Include the workflow run, hardware details, and steps to reproduce in an issue. Avoid posting personal data or secrets in logs.</p></section>
+        <section id="links"><h2>Project links</h2><p>Browse the <a href="https://github.com/ZiumOS/ValantiaOS" target="_blank" rel="noreferrer">source repository</a>, review <a href="https://github.com/ZiumOS/ValantiaOS/actions" target="_blank" rel="noreferrer">build workflows</a>, or check <a href="https://github.com/ZiumOS/ValantiaOS/issues" target="_blank" rel="noreferrer">open and closed issues</a>.</p></section>
+      </div>
+    </div>
+  </main>
+  <footer class="site-footer docs-footer"><div class="footer-inner"><a class="brand footer-brand" href="index.html"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Valantia<span class="brand-os">OS</span></span></a><p>Independent project. Not affiliated with Debian.</p><div class="footer-links"><a href="index.html">Home</a><a href="https://github.com/ZiumOS/ValantiaOS" target="_blank" rel="noreferrer">GitHub ↗</a></div><span class="copyright"></span></div></footer>
+</body>
+</html>
