@@ -23,7 +23,8 @@ DEBIAN_FRONTEND=noninteractive \
     power-profiles-daemon pavucontrol pciutils flatpak \
     git wget build-essential bc bison flex libelf-dev libssl-dev \
     libncurses-dev gawk openssl libudev-dev libpci-dev libiberty-dev \
-    autoconf llvm gcc dwarves rsync cpio kmod fakeroot
+    autoconf llvm gcc dwarves rsync cpio kmod fakeroot \
+    debhelper-compat libdw-dev lsb-release
 
 # Build the current stable upstream Linux 7.2 kernel without third-party
 # patches, then package it for inclusion in the live filesystem.
@@ -35,14 +36,10 @@ cd "src/linux-${KERNEL_VERSION}"
 make defconfig
 scripts/config --set-str LOCALVERSION "-valantia-kern"
 make olddefconfig
-make CC=gcc bindeb-pkg -j"${KERNEL_JOBS}" \\
-  LOCALVERSION=-valantia-kern \\
-  KDEB_PKGVERSION="${KERNEL_VERSION}-1"
+make CC=gcc bindeb-pkg -j"${KERNEL_JOBS}" LOCALVERSION=-valantia-kern KDEB_PKGVERSION="${KERNEL_VERSION}-1" KDEB_CHANGELOG_DIST=trixie
 
 mkdir -p /tmp/valantia-kernel-debs
-find "${KERNEL_BUILD_DIR}" -type f -name '*.deb' \\
-  -exec cp {} /tmp/valantia-kernel-debs/ \\
-  \\\;
+find "${KERNEL_BUILD_DIR}" -type f -name '*.deb' -exec cp {} /tmp/valantia-kernel-debs/ \;
 test -n "$(find /tmp/valantia-kernel-debs -maxdepth 1 -type f -name 'linux-image-*.deb' -print -quit)"
 cd -
 rm -f config/packages.chroot/*.deb
