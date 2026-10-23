@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Valantia Store
+Comment=Discover, install, update, and remove applications
+Exec=/usr/bin/valantia-store
+Icon=system-software-install
+Terminal=false
+Categories=System;Settings;
+StartupNotify=true

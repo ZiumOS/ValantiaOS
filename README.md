@@ -9,8 +9,8 @@ ValantiaOS is an experimental Debian-based live Linux distribution focused on li
 - Version: `0.1.0`
 - Base: Debian GNU/Linux 13 (Trixie)
 - Architecture: AMD64
-- Desktop: XFCE
-- Kernel: Latest Debian Trixie `linux-image-amd64` kernel
+- Desktop: XFCE with ValantiaOS dark styling and bundled wallpapers
+- Kernel: PsyCachy Linux `6.17.13`, packaged with the `valantia-kern` local version
 - Build system: Debian Live (`live-build`)
 - CI: GitHub Actions
 
@@ -25,7 +25,7 @@ ValantiaOS is an experimental Debian-based live Linux distribution focused on li
 
 ## Build
 
-The ISO is built in a Debian Trixie container using `live-build`. The GitHub Actions workflow runs `scripts/build-iso.sh`; it also generates the branded GRUB splash and checksum.
+The XFCE desktop includes Valantia Welcome for first-run guidance, shortcuts to the Control Center and Store, and a safe installer availability check; Valantia Control Center and Valantia Store provide system and package management tools. The Store searches a curated set of Debian packages and Flatpak apps, with install/remove actions and separate update commands; package changes require administrator authorization. Flatpak uses the system Flathub remote. The current ISO does not yet include a configured disk installer, so Welcome will clearly report that rather than risk disk changes.
 
 To build through GitHub Actions:
 

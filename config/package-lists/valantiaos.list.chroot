@@ -6,8 +6,7 @@ xfce4-terminal
 lightdm
 lightdm-gtk-greeter
 
-# Debian's amd64 kernel metapackage tracks the latest kernel supported by Trixie.
-linux-image-amd64
+# Debian kernel package is built from the pinned PsyCachy source in scripts/build-iso.sh.
 
 # Network and basic utilities
 network-manager
@@ -32,6 +31,7 @@ firmware-amd-graphics
 firmware-intel-graphics
 firmware-misc-nonfree
 
-# Gaming performance and monitoring
+# Store dependency and system-wide Flatpak support
+flatpak
 gamemode
 mangohud

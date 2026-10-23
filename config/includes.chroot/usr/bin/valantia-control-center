@@ -1,0 +1,218 @@
+#!/usr/bin/python3
+import os
+import subprocess
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, GLib, Gdk
+
+APP_TITLE = "Valantia Control Center"
+
+class ControlCenter(Gtk.Window):
+    def __init__(self):
+        super().__init__(title=APP_TITLE)
+        self.set_default_size(900, 650)
+        self.set_border_width(0)
+        self.connect("destroy", Gtk.main_quit)
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        self.add(outer)
+        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        sidebar.set_size_request(220, -1)
+        sidebar.get_style_context().add_class("sidebar")
+        sidebar.set_border_width(22)
+        outer.pack_start(sidebar, False, False, 0)
+
+        brand = Gtk.Label()
+        brand.set_markup('<span size="large" weight="bold">◢ ValantiaOS</span>')
+        brand.set_xalign(0)
+        sidebar.pack_start(brand, False, False, 20)
+        sidebar.pack_start(self.nav_button("Overview", "overview"), False, False, 0)
+        sidebar.pack_start(self.nav_button("Performance", "performance"), False, False, 0)
+        sidebar.pack_start(self.nav_button("Hardware & devices", "hardware"), False, False, 0)
+        sidebar.pack_start(self.nav_button("Services", "services"), False, False, 0)
+        sidebar.pack_end(Gtk.Label(label="SYSTEM SETTINGS  /  01"), False, False, 4)
+
+        self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE,
+                               transition_duration=150)
+        self.stack.set_margin_top(34)
+        self.stack.set_margin_bottom(28)
+        self.stack.set_margin_start(34)
+        self.stack.set_margin_end(34)
+        outer.pack_start(self.stack, True, True, 0)
+        self.build_overview()
+        self.build_performance()
+        self.build_hardware()
+        self.build_services()
+        self.show_all()
+        self.refresh_stats()
+        GLib.timeout_add_seconds(3, self.refresh_stats)
+
+    def nav_button(self, title, page):
+        button = Gtk.Button(label=title)
+        button.set_relief(Gtk.ReliefStyle.NONE)
+        button.set_halign(Gtk.Align.FILL)
+        button.connect("clicked", lambda *_: self.stack.set_visible_child_name(page))
+        return button
+
+    def page(self, name, eyebrow, title, subtitle):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        self.stack.add_named(box, name)
+        small = Gtk.Label(label=eyebrow.upper())
+        small.set_xalign(0)
+        small.get_style_context().add_class("eyebrow")
+        box.pack_start(small, False, False, 0)
+        heading = Gtk.Label()
+        heading.set_markup(f'<span size="xx-large" weight="bold">{GLib.markup_escape_text(title)}</span>')
+        heading.set_xalign(0)
+        box.pack_start(heading, False, False, 0)
+        desc = Gtk.Label(label=subtitle)
+        desc.set_xalign(0)
+        desc.set_line_wrap(True)
+        desc.get_style_context().add_class("muted")
+        box.pack_start(desc, False, False, 4)
+        return box
+
+    def card(self, parent, title, detail=""):
+        frame = Gtk.Frame()
+        frame.set_shadow_type(Gtk.ShadowType.NONE)
+        frame.get_style_context().add_class("card")
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        content.set_border_width(18)
+        frame.add(content)
+        heading = Gtk.Label()
+        heading.set_markup(f'<b>{GLib.markup_escape_text(title)}</b>')
+        heading.set_xalign(0)
+        content.pack_start(heading, False, False, 0)
+        if detail:
+            label = Gtk.Label(label=detail)
+            label.set_xalign(0)
+            label.set_line_wrap(True)
+            label.get_style_context().add_class("muted")
+            content.pack_start(label, False, False, 0)
+        parent.pack_start(frame, False, False, 4)
+        return content
+
+    def action(self, parent, title, command, detail=""):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        label = Gtk.Label(label=title)
+        label.set_xalign(0)
+        label.set_line_wrap(True)
+        row.pack_start(label, True, True, 0)
+        button = Gtk.Button(label="Apply")
+        button.connect("clicked", lambda *_: self.run_admin(command))
+        row.pack_end(button, False, False, 0)
+        parent.pack_start(row, False, False, 4)
+        if detail:
+            note = Gtk.Label(label=detail)
+            note.set_xalign(0)
+            note.set_line_wrap(True)
+            note.get_style_context().add_class("muted")
+            parent.pack_start(note, False, False, 0)
+
+    def build_overview(self):
+        page = self.page("overview", "ValantiaOS  /  Control center", "Your system, at a glance",
+                         "Quick status and everyday controls. Changes that need administrator access will ask for authorization.")
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        page.pack_start(row, False, False, 16)
+        self.cpu_card = self.card(row, "PROCESSOR")
+        self.ram_card = self.card(row, "MEMORY")
+        self.cpu_value = Gtk.Label(label="Reading system information…")
+        self.cpu_value.set_xalign(0)
+        self.cpu_value.set_line_wrap(True)
+        self.cpu_card.pack_start(self.cpu_value, False, False, 0)
+        self.ram_value = Gtk.Label(label="Reading resource usage…")
+        self.ram_value.set_xalign(0)
+        self.ram_card.pack_start(self.ram_value, False, False, 0)
+        self.gpu_card = self.card(page, "GRAPHICS")
+        self.gpu_value = Gtk.Label(label="Detecting graphics adapter…")
+        self.gpu_value.set_xalign(0)
+        self.gpu_value.set_line_wrap(True)
+        self.gpu_card.pack_start(self.gpu_value, False, False, 0)
+        self.os_card = self.card(page, "SYSTEM", "ValantiaOS · Debian GNU/Linux")
+        self.status = Gtk.Label(label="Ready")
+        self.status.set_xalign(0)
+        page.pack_end(self.status, False, False, 8)
+
+    def build_performance(self):
+        page = self.page("performance", "Tuning", "Performance mode",
+                         "Select a power profile. Available profiles depend on your hardware and installed power-profiles-daemon.")
+        card = self.card(page, "POWER PROFILE", "Balanced is a sensible default for most desktops and laptops.")
+        self.action(card, "Balanced", ["/usr/bin/valantia-control-helper", "profile", "balanced"])
+        self.action(card, "Performance", ["/usr/bin/valantia-control-helper", "profile", "performance"],
+                    "The performance profile may be unavailable on some systems.")
+        self.action(card, "Power saver", ["/usr/bin/valantia-control-helper", "profile", "power-saver"])
+        gov = self.card(page, "CPU GOVERNOR", "Set the CPU frequency governor across available CPUs.")
+        self.action(gov, "Balanced (schedutil)", ["/usr/bin/valantia-control-helper", "governor", "schedutil"])
+        self.action(gov, "Performance", ["/usr/bin/valantia-control-helper", "governor", "performance"])
+
+    def build_hardware(self):
+        page = self.page("hardware", "Devices", "Hardware & devices",
+                         "Open the desktop settings tools for display, sound, network, and graphics information.")
+        card = self.card(page, "DISPLAY", "Resolution, refresh rate, and display arrangement.")
+        self.action(card, "Display settings", ["xfce4-display-settings"])
+        card = self.card(page, "AUDIO", "Output devices, input devices, and volume.")
+        self.action(card, "Audio settings", ["pavucontrol"])
+        card = self.card(page, "NETWORK", "Wi-Fi and wired connections.")
+        self.action(card, "Network connections", ["nm-connection-editor"])
+        card = self.card(page, "GRAPHICS", "Detected graphics adapters and driver modules.")
+        self.action(card, "Refresh hardware information", ["/usr/bin/valantia-control-helper", "refresh"])
+
+    def build_services(self):
+        page = self.page("services", "Background tasks", "System services",
+                         "View and toggle common services. Service changes require administrator authorization.")
+        for service, description in [
+            ("bluetooth", "Bluetooth device support"),
+            ("cups", "Printer service"),
+            ("ssh", "Secure shell server"),
+        ]:
+            card = self.card(page, service, description)
+            self.action(card, "Start service", ["/usr/bin/valantia-control-helper", "service", service, "start"])
+            self.action(card, "Stop service", ["/usr/bin/valantia-control-helper", "service", service, "stop"])
+
+    def run_admin(self, command):
+        try:
+            result = subprocess.run(["pkexec", *command], check=False)
+            self.status.set_text("Action completed" if result.returncode == 0 else "Action cancelled or failed")
+        except OSError as error:
+            self.status.set_text(f"Could not start action: {error}")
+
+    def refresh_stats(self):
+        try:
+            cpu = next((line.split(":", 1)[1].strip() for line in open("/proc/cpuinfo")
+                        if line.startswith("model name")), "Unknown processor")
+            self.cpu_value.set_text(cpu)
+            with open("/proc/meminfo") as f:
+                mem = {line.split(":")[0]: int(line.split()[1]) for line in f if ":" in line}
+            total = mem.get("MemTotal", 0)
+            available = mem.get("MemAvailable", 0)
+            used = total - available
+            self.ram_value.set_text(f"{used / 1048576:.1f} / {total / 1048576:.1f} GiB used")
+            try:
+                gpu = subprocess.check_output(["sh", "-c", "lspci -nn | grep -Ei 'VGA|3D|Display' | cut -d: -f3-"],
+                                              text=True, stderr=subprocess.DEVNULL).strip()
+            except subprocess.SubprocessError:
+                gpu = "No graphics adapter information available"
+            self.gpu_value.set_text(gpu or "No graphics adapter information available")
+        except (OSError, ValueError, IndexError):
+            pass
+        return True
+
+if __name__ == "__main__":
+    css = b"""
+    window { background: #f4f1e9; color: #20252e; }
+    .sidebar { background: #202d46; color: #f4f1e9; }
+    .sidebar button { color: #e6e2dc; text-align: left; padding: 10px; }
+    .sidebar button:hover { background: #343f58; }
+# CSS styling / class names are added to GTK widgets.
+    .eyebrow { color: #6952a1; letter-spacing: 1px; font-size: 10px; }
+    .muted { color: #72747a; }
+    .card { background: #fffefa; border: 1px solid #d9d5cb; border-radius: 5px; padding: 2px; }
+    button { border-radius: 3px; }
+    """
+    provider = Gtk.CssProvider()
+    provider.load_from_data(css)
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    ControlCenter()
+    Gtk.main()

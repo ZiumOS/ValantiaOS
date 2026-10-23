@@ -1,0 +1,45 @@
+#!/usr/bin/python3
+import glob
+import os
+import subprocess
+import sys
+
+ALLOWED_SERVICES = {"bluetooth", "cups", "ssh"}
+
+def fail(message):
+    print(message, file=sys.stderr)
+    raise SystemExit(1)
+
+if os.geteuid() != 0:
+    fail("This helper must be run through pkexec.")
+
+if len(sys.argv) == 2 and sys.argv[1] == "refresh":
+    raise SystemExit(0)
+
+if len(sys.argv) == 3 and sys.argv[1] == "profile":
+    profile = sys.argv[2]
+    if profile not in {"balanced", "performance", "power-saver"}:
+        fail("Unsupported power profile.")
+    raise SystemExit(subprocess.call(["/usr/bin/powerprofilesctl", "set", profile]))
+
+if len(sys.argv) == 3 and sys.argv[1] == "governor":
+    governor = sys.argv[2]
+    if governor not in {"schedutil", "performance"}:
+        fail("Unsupported CPU governor.")
+    paths = glob.glob("/sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_governor")
+    if not paths:
+        fail("No configurable CPU frequency governors found.")
+    for path in paths:
+        available = open(os.path.join(os.path.dirname(path), "scaling_available_governors")).read().split()
+        if governor in available:
+            with open(path, "w") as stream:
+                stream.write(governor)
+    raise SystemExit(0)
+
+if len(sys.argv) == 4 and sys.argv[1] == "service":
+    service, operation = sys.argv[2], sys.argv[3]
+    if service not in ALLOWED_SERVICES or operation not in {"start", "stop"}:
+        fail("Unsupported service operation.")
+    raise SystemExit(subprocess.call(["/usr/bin/systemctl", operation, service]))
+
+fail("Invalid Valantia Control Center action.")

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Valantia Welcome
+Comment=Get started with ValantiaOS
+Exec=/usr/bin/valantia-welcome
+Icon=help-about
+Terminal=false
+Categories=System;Utility;
+StartupNotify=true
