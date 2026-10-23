@@ -1,0 +1,29 @@
+
+# ValantiaOS Gaming - XFCE base
+xserver-xorg
+xfce4
+xfce4-terminal
+lightdm
+lightdm-gtk-greeter
+
+# Network and basic utilities
+network-manager
+network-manager-gnome
+sudo
+curl
+vim-tiny
+firefox-esr
+
+# Graphics and Vulkan
+mesa-vulkan-drivers
+vulkan-tools
+
+# Hardware firmware
+firmware-linux
+firmware-amd-graphics
+firmware-intel-graphics
+firmware-misc-nonfree
+
+# Gaming performance and monitoring
+gamemode
+mangohud

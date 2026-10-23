@@ -1,0 +1,5 @@
+NAME="ValantiaOS"
+VERSION="0.1.0"
+BASE="Debian GNU/Linux 13 (Trixie)"
+EDITION="Gaming"
+ARCHITECTURE="amd64"

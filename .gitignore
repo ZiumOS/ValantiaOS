@@ -1,0 +1,16 @@
+
+# Generated live-build artifacts
+/chroot/
+/binary/
+/cache/
+/.build/
+/live-image-*.hybrid.iso
+/live-image-*.contents
+/live-image-*.packages
+/live-image-*.manifest
+/live-image-*.filesystem
+/build.log
+
+# Temporary outputs
+/output/
+/*.log

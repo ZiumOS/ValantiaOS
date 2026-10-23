@@ -1,0 +1,75 @@
+
+name: Build ValantiaOS Gaming
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "config/**"
+      - ".github/workflows/build-iso.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: valantiaos-iso-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Build Debian Live ISO
+        run: |
+          docker run --privileged --rm \
+            -v "$GITHUB_WORKSPACE:/work" \
+            -w /work \
+            debian:trixie \
+            bash -euxo pipefail -c '
+              apt-get update
+
+              DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y --no-install-recommends \
+                  live-build ca-certificates
+
+              lb config \
+                --distribution trixie \
+                --architectures amd64 \
+                --binary-image iso-hybrid \
+                --archive-areas \
+                  "main contrib non-free non-free-firmware" \
+                --apt-recommends false
+
+              lb build
+
+              test -s live-image-amd64.hybrid.iso
+
+              mkdir -p output
+
+              cp live-image-amd64.hybrid.iso \
+                output/ValantiaOS-Gaming-0.1.0-amd64.iso
+
+              cd output
+
+              sha256sum \
+                ValantiaOS-Gaming-0.1.0-amd64.iso \
+                > SHA256SUMS
+            '
+
+      - name: Upload ISO artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ValantiaOS-Gaming-0.1.0-amd64
+          path: |
+            output/ValantiaOS-Gaming-0.1.0-amd64.iso
+            output/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
