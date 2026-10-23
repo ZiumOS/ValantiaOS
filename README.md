@@ -2,7 +2,7 @@
 
 **Your System. Your Rules.**
 
-ValantiaOS Gaming is an experimental Debian-based live Linux distribution focused on lightweight desktop computing and PC gaming.
+ValantiaOS is an experimental Debian-based live Linux distribution focused on lightweight desktop computing and PC gaming.
 
 ## Current Release
 
@@ -10,7 +10,7 @@ ValantiaOS Gaming is an experimental Debian-based live Linux distribution focuse
 - Base: Debian GNU/Linux 13 (Trixie)
 - Architecture: AMD64
 - Desktop: XFCE
-- Kernel: Debian-provided Linux kernel
+- Kernel: Latest Debian Trixie `linux-image-amd64` kernel
 - Build system: Debian Live (`live-build`)
 - CI: GitHub Actions
 
@@ -30,7 +30,7 @@ The ISO is built in a Debian Trixie container using `live-build`. The GitHub Act
 To build through GitHub Actions:
 
 1. Open the repository's Actions tab.
-2. Select **Build ValantiaOS Gaming**.
+2. Select **Build ValantiaOS**.
 3. Click **Run workflow**.
 4. Download the ISO artifact when the job succeeds.
 

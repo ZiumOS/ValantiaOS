@@ -1,5 +1,5 @@
 
-name: Build ValantiaOS Gaming
+name: Build ValantiaOS
 
 on:
   workflow_dispatch:
@@ -40,9 +40,9 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: ValantiaOS-Gaming-0.1.0-amd64
+          name: ValantiaOS-0.1.0-amd64
           path: |
-            output/ValantiaOS-Gaming-0.1.0-amd64.iso
+            output/ValantiaOS-0.1.0-amd64.iso
             output/SHA256SUMS
           if-no-files-found: error
           retention-days: 7

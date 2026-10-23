@@ -8,7 +8,7 @@
 
 set -Eeuo pipefail
 
-ISO_NAME="ValantiaOS-Gaming-0.1.0-amd64.iso"
+ISO_NAME="ValantiaOS-0.1.0-amd64.iso"
 
 apt-get update
 

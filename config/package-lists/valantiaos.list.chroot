@@ -1,10 +1,13 @@
 
-# ValantiaOS Gaming - XFCE base
+# ValantiaOS - XFCE base
 xserver-xorg
 xfce4
 xfce4-terminal
 lightdm
 lightdm-gtk-greeter
+
+# Debian's amd64 kernel metapackage tracks the latest kernel supported by Trixie.
+linux-image-amd64
 
 # Network and basic utilities
 network-manager

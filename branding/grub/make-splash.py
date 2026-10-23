@@ -23,20 +23,13 @@ for y in range(H):
 
 draw = ImageDraw.Draw(img)
 
-# Subtle accent rings
+# Subtle accent rings and geometric ValantiaOS mark.
 draw.ellipse((375, 69, 625, 319), outline=(37, 44, 76), width=2)
 draw.ellipse((400, 94, 600, 294), outline=(29, 42, 70), width=1)
-
-# Minimal geometric logo
 cx, cy = 500, 194
-draw.polygon(
-    [(cx, cy - 56), (cx + 43, cy), (cx, cy + 56), (cx - 43, cy)],
-    fill=(112, 100, 255)
-)
-draw.polygon(
-    [(cx, cy - 29), (cx + 21, cy), (cx, cy + 29), (cx - 21, cy)],
-    fill=(222, 226, 255)
-)
+draw.polygon([(cx - 48, cy - 42), (cx - 28, cy - 42), (cx - 4, cy + 28), (cx - 16, cy + 48)], fill=(112, 100, 255))
+draw.polygon([(cx - 8, cy - 42), (cx + 12, cy - 42), (cx + 35, cy + 28), (cx + 23, cy + 48)], fill=(222, 226, 255))
+draw.polygon([(cx + 31, cy - 42), (cx + 49, cy - 42), (cx + 25, cy + 28), (cx + 13, cy + 48)], fill=(112, 100, 255))
 
 font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 regular_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
