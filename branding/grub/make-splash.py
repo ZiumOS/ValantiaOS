@@ -1,7 +1,7 @@
 from PIL import Image, ImageDraw, ImageFont
 import os
 
-W, H = 800, 600
+W, H = 640, 480
 img = Image.new("RGB", (W, H))
 pixels = img.load()
 
