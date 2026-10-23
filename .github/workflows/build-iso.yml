@@ -31,7 +31,7 @@ jobs:
       - name: Cache upstream kernel source
         uses: actions/cache@v4
         with:
-          path: .cache/linux-7.2.12/src/linux-7.2.12
+          path: .cache/linux-7.2.12/linux-7.2.12.tar.xz
           key: linux-source-7.2.12-${{ runner.os }}-${{ runner.arch }}
 
       - name: Build Debian Live ISO
