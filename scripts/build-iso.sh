@@ -46,11 +46,18 @@ rm -f config/packages.chroot/*.deb
 mkdir -p config/packages.chroot
 cp /tmp/valantia-kernel-debs/*.deb config/packages.chroot/
 
-chmod 0755 config/includes.chroot/usr/bin/valantia-control-center
-chmod 0755 config/includes.chroot/usr/bin/valantia-control-helper
-chmod 0755 config/includes.chroot/usr/bin/valantia-store
-chmod 0755 config/includes.chroot/usr/bin/valantia-store-helper
-chmod 0755 config/includes.chroot/usr/bin/valantia-welcome
+for executable in \
+  config/includes.chroot/usr/bin/valantia-control-center \
+  config/includes.chroot/usr/bin/valantia-control-helper \
+  config/includes.chroot/usr/bin/valantia-store \
+  config/includes.chroot/usr/bin/valantia-store-helper \
+  config/includes.chroot/usr/bin/valantia-welcome; do
+  if [[ -f "${executable}" ]]; then
+    chmod 0755 "${executable}"
+  else
+    printf 'Warning: optional desktop app is not in this checkout: %s\\n' "${executable}" >&2
+  fi
+done
 
 # Configure Flathub as a system-wide Flatpak remote in the live image.
 mkdir -p config/hooks/normal
