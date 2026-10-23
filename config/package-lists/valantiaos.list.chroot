@@ -17,7 +17,6 @@ python3-gi
 gir1.2-gtk-3.0
 dbus-x11
 libgl1-mesa-dri
-polkit-1
 polkitd
 pkexec
 power-profiles-daemon
