@@ -10,7 +10,8 @@ set -Eeuo pipefail
 
 ISO_NAME="ValantiaOS-0.1.0-amd64.iso"
 
-ROOT_DIR="$(pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${ROOT_DIR}"
 KERNEL_VERSION="7.2.12"
 KERNEL_JOBS="$(($(nproc) > 2 ? $(nproc) - 2 : 1))"
 KERNEL_BUILD_DIR="${ROOT_DIR}/.cache/linux-${KERNEL_VERSION}"
@@ -29,7 +30,11 @@ DEBIAN_FRONTEND=noninteractive \
 
 # Build the current stable upstream Linux 7.2 kernel without third-party
 # patches, then package it for inclusion in the live filesystem.
-mkdir -p "${KERNEL_BUILD_DIR}/src"
+# Avoid stale source trees and packages being reused after an interrupted build.
+rm -rf "${KERNEL_BUILD_DIR}/src/linux-${KERNEL_VERSION}"
+rm -f "${KERNEL_BUILD_DIR}/linux-${KERNEL_VERSION}.tar.xz"
+rm -rf /tmp/valantia-kernel-debs
+mkdir -p "${KERNEL_BUILD_DIR}/src" /tmp/valantia-kernel-debs
 cd "${KERNEL_BUILD_DIR}"
 wget -q "https://www.kernel.org/pub/linux/kernel/v7.x/linux-${KERNEL_VERSION}.tar.xz"
 tar -xf "linux-${KERNEL_VERSION}.tar.xz" -C src
@@ -37,7 +42,7 @@ cd "src/linux-${KERNEL_VERSION}"
 make defconfig
 scripts/config --set-str LOCALVERSION "-valantia-kern"
 make olddefconfig
-make CC=gcc bindeb-pkg -j"${KERNEL_JOBS}" LOCALVERSION=-valantia-kern KDEB_PKGVERSION="${KERNEL_VERSION}-1" KDEB_CHANGELOG_DIST=trixie
+make CC=gcc bindeb-pkg -j"${KERNEL_JOBS}" KDEB_PKGVERSION="${KERNEL_VERSION}-1" KDEB_CHANGELOG_DIST=trixie
 
 mkdir -p /tmp/valantia-kernel-debs
 find "${KERNEL_BUILD_DIR}" -type f -name '*.deb' -exec cp {} /tmp/valantia-kernel-debs/ \;
@@ -76,8 +81,13 @@ chmod 0755 config/hooks/normal/0200-flathub.hook.chroot
 # config/bootloaders/grub-pc/ on top of them, so the override tree only needs
 # the files we actually want to change: the background image and the theme.
 # There is no need to seed it from /usr/share/live/build.
-python3 branding/grub/make-splash.py
+if [[ ! -f "${ROOT_DIR}/branding/grub/make-splash.py" ]]; then
+  printf 'Error: GRUB splash generator is missing under %s\\n' "${ROOT_DIR}" >&2
+  exit 1
+fi
+python3 "${ROOT_DIR}/branding/grub/make-splash.py"
 
+cd "${ROOT_DIR}"
 lb config \
   --distribution trixie \
   --architectures amd64 \
@@ -88,10 +98,10 @@ lb config \
 
 lb build
 
-test -s live-image-amd64.hybrid.iso
+test -s "${ROOT_DIR}/live-image-amd64.hybrid.iso"
 
-mkdir -p output
+mkdir -p "${ROOT_DIR}/output"
 
-cp live-image-amd64.hybrid.iso "output/${ISO_NAME}"
+cp "${ROOT_DIR}/live-image-amd64.hybrid.iso" "${ROOT_DIR}/output/${ISO_NAME}"
 
-(cd output && sha256sum "${ISO_NAME}" > SHA256SUMS)
+(cd "${ROOT_DIR}/output" && sha256sum "${ISO_NAME}" > SHA256SUMS)
