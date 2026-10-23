@@ -22,7 +22,7 @@ apt-get update
 DEBIAN_FRONTEND=noninteractive \
   apt-get install -y --no-install-recommends \
     live-build ca-certificates python3-pil fonts-dejavu-core \
-    xfce4-terminal python3-gi gir1.2-gtk-3.0 policykit-1 \
+    xfce4-terminal python3-gi gir1.2-gtk-3.0 polkitd pkexec \
     power-profiles-daemon pavucontrol pciutils flatpak \
     git wget build-essential bc bison flex libelf-dev libssl-dev \
     libncurses-dev gawk openssl libudev-dev libpci-dev libiberty-dev \
