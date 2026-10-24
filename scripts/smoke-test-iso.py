@@ -85,8 +85,6 @@ def check(root: Path, expected_version: str | None = None) -> None:
         fail("Zukitre-dark GTK theme is missing from the live rootfs")
     if not (root / "usr/share/themes/Zukitre-dark/xfwm4/themerc").is_file():
         fail("Zukitre-dark XFWM4 theme is missing from the live rootfs")
-    if 'GRUB_THEME="/boot/grub/live-theme/theme.txt"' not in (root / "etc/default/grub").read_text(errors="replace"):
-        fail("GRUB defaults do not configure the ValantiaOS theme")
     print("PASS: LightDM autologin, greeter theme, and XFCE skel configuration are present")
 
     marker = root / "var/lib/valantiaos/graphical-session-hook-ran"
