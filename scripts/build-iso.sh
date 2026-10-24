@@ -87,6 +87,7 @@ done
 
 chmod 0755 config/hooks/normal/0030-ensure-live-kernels.hook.chroot
 chmod 0755 config/hooks/normal/0100-enable-graphical-session.hook.chroot
+chmod 0755 config/hooks/normal/0110-install-zuki-theme.hook.chroot
 
 # Embed the unique build version in ValantiaOS metadata and OS release metadata.
 cat > config/includes.chroot/etc/valantiaos-release <<EOF

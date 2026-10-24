@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <channel name="xsettings" version="1.0">
   <property name="Net" type="empty">
-    <property name="ThemeName" type="string" value="Adwaita-dark"/>
+    <property name="ThemeName" type="string" value="Zukitre-dark"/>
     <property name="IconThemeName" type="string" value="Adwaita"/>
     <property name="CursorThemeName" type="string" value="Adwaita"/>
     <property name="DoubleClickTime" type="int" value="400"/>

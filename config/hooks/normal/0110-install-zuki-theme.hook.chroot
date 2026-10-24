@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+
+# Install the Zuki GTK/XFWM themes (GPL-3.0, upstream unmaintained) from a
+# pinned upstream commit so live-image builds stay reproducible.
+ZUKI_COMMIT="3345081724d2513c9517e5947d86f7c49737fddc"
+
+apt-get install -y --no-install-recommends meson ninja-build sassc git ca-certificates
+
+workdir="$(mktemp -d)"
+trap 'rm -rf "$workdir"' EXIT
+git clone --quiet https://github.com/lassekongo83/zuki-themes.git "$workdir/zuki-themes"
+git -C "$workdir/zuki-themes" checkout --quiet "$ZUKI_COMMIT"
+meson setup --prefix /usr -Dgtk2=false "$workdir/build" "$workdir/zuki-themes"
+ninja -C "$workdir/build" install
+
+for theme in Zukitre-dark Zukitwo-dark Zukitre Zukitwo; do
+  test -d "/usr/share/themes/$theme" || { echo "Zuki theme $theme was not installed" >&2; exit 1; }
+done
+test -f /usr/share/themes/Zukitre-dark/xfwm4/themerc || { echo 'Zukitre-dark XFWM4 decoration missing' >&2; exit 1; }
+
+# Build-time-only dependencies; keep the live image lean without touching
+# packages (git, ca-certificates) that other hooks or the base image need.
+apt-get purge -y meson ninja-build sassc

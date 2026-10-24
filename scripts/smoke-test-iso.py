@@ -66,16 +66,25 @@ def check(root: Path, expected_version: str | None = None) -> None:
     if not greeter.is_file():
         fail("LightDM GTK greeter theme configuration is missing")
     greeter_config = greeter.read_text()
-    for setting in ("background=/usr/share/backgrounds/valantiaos/wall1.jpg", "theme-name=Adwaita-dark", "icon-theme-name=Adwaita"):
+    for setting in ("background=/usr/share/backgrounds/valantiaos/wall1.jpg", "theme-name=Zukitre-dark", "icon-theme-name=Adwaita"):
         if setting not in greeter_config:
             fail(f"LightDM greeter configuration missing {setting}")
     panel_config = root / "etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml"
     desktop_config = root / "etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml"
     settings_config = root / "etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml"
-    if not all(path.is_file() for path in (panel_config, desktop_config, settings_config)):
-        fail("XFCE default panel, wallpaper, or theme config missing from /etc/skel")
+    wm_config = root / "etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml"
+    if not all(path.is_file() for path in (panel_config, desktop_config, settings_config, wm_config)):
+        fail("XFCE default panel, wallpaper, theme, or window-manager config missing from /etc/skel")
     if "clock" not in panel_config.read_text() or "tasklist" not in panel_config.read_text() or "wall1.jpg" not in desktop_config.read_text():
         fail("XFCE panel or Valantia wallpaper configuration is incomplete")
+    if 'value="Zukitre-dark"' not in settings_config.read_text():
+        fail("XFCE settings do not select the Zukitre-dark theme")
+    if 'value="Zukitre-dark"' not in wm_config.read_text():
+        fail("XFCE window manager is not configured for the Zukitre-dark theme")
+    if not (root / "usr/share/themes/Zukitre-dark/gtk-3.0/gtk.css").exists():
+        fail("Zukitre-dark GTK theme is missing from the live rootfs")
+    if not (root / "usr/share/themes/Zukitre-dark/xfwm4/themerc").is_file():
+        fail("Zukitre-dark XFWM4 theme is missing from the live rootfs")
     print("PASS: LightDM autologin, greeter theme, and XFCE skel configuration are present")
 
     marker = root / "var/lib/valantiaos/graphical-session-hook-ran"
