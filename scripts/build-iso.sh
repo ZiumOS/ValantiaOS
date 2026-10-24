@@ -117,12 +117,10 @@ chmod 0755 config/hooks/normal/0200-flathub.hook.chroot
 # Render branded GRUB assets and embed the per-build version in the theme.
 python3 "${ROOT_DIR}/branding/grub/make-splash.py"
 mkdir -p config/bootloaders/grub-pc/live-theme config/bootloaders/isolinux config/includes.chroot/usr/share/pixmaps
-cp config/bootloaders/grub-pc/grub.cfg config/bootloaders/grub-pc/grub.cfg.in
-sed -i "s/ValantiaOS V.alpha.placeholder/ValantiaOS ${VERSION}/g" config/bootloaders/grub-pc/grub.cfg.in
-cp config/bootloaders/grub-pc/grub.cfg.in config/bootloaders/grub-pc/grub.cfg
-cp config/bootloaders/isolinux/live.cfg config/bootloaders/isolinux/live.cfg.in
-sed -i "s/ValantiaOS V.alpha.placeholder/ValantiaOS ${VERSION}/g" config/bootloaders/isolinux/live.cfg.in
-cp config/bootloaders/isolinux/live.cfg.in config/bootloaders/isolinux/live.cfg
+cp config/bootloaders/grub-pc/templates/grub.cfg config/bootloaders/grub-pc/grub.cfg
+sed -i "s/V.alpha.placeholder/${VERSION}/g" config/bootloaders/grub-pc/grub.cfg
+cp config/bootloaders/isolinux/templates/live.cfg config/bootloaders/isolinux/live.cfg
+sed -i "s/V.alpha.placeholder/${VERSION}/g" config/bootloaders/isolinux/live.cfg
 cp config/bootloaders/grub-pc/splash.png config/includes.chroot/usr/share/pixmaps/valantiaos-logo.png
 sed -i "s/^set timeout=.*/set timeout=10/" config/bootloaders/grub-pc/grub.cfg
 
