@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -80,7 +81,11 @@ def check(root: Path, expected_version: str | None = None) -> None:
     marker = root / "var/lib/valantiaos/graphical-session-hook-ran"
     if not marker.is_file():
         fail("graphical-session chroot hook did not leave its completion marker")
-    print("PASS: graphical-session hook ran during image construction")
+    guest_check = root / "usr/local/bin/valantiaos-graphical-check"
+    autostart = root / "etc/xdg/autostart/valantiaos-graphical-check.desktop"
+    if not guest_check.is_file() or not autostart.is_file() or "Exec=/usr/local/bin/valantiaos-graphical-check" not in autostart.read_text():
+        fail("live graphical-session checker is missing or not autostarted")
+    print("PASS: graphical-session hook and live guest checks are configured")
 
     release = root / "etc/os-release"
     valantia_release = root / "etc/valantiaos-release"

@@ -1,0 +1,83 @@
+#!/bin/bash
+set -euo pipefail
+
+result=/run/valantiaos-graphical-checks.log
+exec > >(tee -a "$result" | sudo /usr/bin/tee -a /dev/ttyS0 >/dev/null) 2>&1
+
+failures=0
+check() {
+  local name=$1
+  shift
+  if "$@"; then
+    printf 'GUEST_CHECK PASS %s\n' "$name"
+  else
+    printf 'GUEST_CHECK FAIL %s\n' "$name"
+    failures=$((failures + 1))
+  fi
+}
+
+icon_exists() {
+  local icon=$1 icon_theme=$2 theme_dir
+  [[ -n "$icon" ]] || return 1
+  [[ "$icon" == /* && -e "$icon" ]] && return 0
+  [[ "$icon" == *.* ]] && return 1
+  for theme_dir in "/usr/share/icons/$icon_theme" /usr/share/icons/hicolor; do
+    [[ -d "$theme_dir" ]] || continue
+    if find "$theme_dir" -type f \( -name "$icon.png" -o -name "$icon.svg" -o -name "$icon.xpm" \) -print -quit | grep -q .; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+check_processes() {
+  local process
+  for process in xfce4-panel xfdesktop xfwm4; do
+    pgrep -x "$process" >/dev/null || { echo "Missing process: $process"; return 1; }
+  done
+}
+
+check_theme() {
+  local icon_theme gtk_theme
+  icon_theme=$(xfconf-query -c xsettings -p /Net/IconThemeName) || return 1
+  gtk_theme=$(xfconf-query -c xsettings -p /Net/ThemeName) || return 1
+  echo "Icon theme: $icon_theme; GTK theme: $gtk_theme"
+  [[ -d "/usr/share/icons/$icon_theme" ]] || { echo "Missing icon theme directory: /usr/share/icons/$icon_theme"; return 1; }
+  [[ -d "/usr/share/themes/$gtk_theme" ]] || { echo "Missing GTK theme directory: /usr/share/themes/$gtk_theme"; return 1; }
+}
+
+check_wallpaper() {
+  local config wallpaper
+  config="$HOME/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml"
+  [[ -f "$config" ]] || { echo "Missing XFCE desktop config: $config"; return 1; }
+  wallpaper=$(grep -oP '(?<=name="image-path" type="string" value=")[^"]+' "$config" | head -n1 || true)
+  [[ -n "$wallpaper" && -f "$wallpaper" ]] || { echo "Missing configured wallpaper: ${wallpaper:-unset}"; return 1; }
+  echo "Wallpaper: $wallpaper"
+}
+
+check_launchers() {
+  local launcher icon icon_theme
+  local found=0
+  icon_theme=$(xfconf-query -c xsettings -p /Net/IconThemeName) || return 1
+  shopt -s nullglob
+  for launcher in "$HOME"/Desktop/*.desktop; do
+    found=1
+    icon=$(sed -n 's/^Icon=//p' "$launcher" | head -n1 || true)
+    if ! icon_exists "$icon" "$icon_theme"; then
+      echo "Missing launcher icon: $launcher (Icon=${icon:-unset})"
+      return 1
+    fi
+  done
+  echo "Desktop launchers checked: $found"
+}
+
+check xfce-processes check_processes
+check theme-and-icons check_theme
+check wallpaper check_wallpaper
+check desktop-launcher-icons check_launchers
+
+if (( failures )); then
+  printf 'GUEST_CHECKS_COMPLETE FAIL count=%s\n' "$failures"
+  exit 1
+fi
+printf 'GUEST_CHECKS_COMPLETE PASS\n'

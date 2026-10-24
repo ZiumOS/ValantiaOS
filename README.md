@@ -12,7 +12,7 @@ ValantiaOS is an experimental Debian GNU/Linux 13 (Trixie) AMD64 live image usin
 
 ## Build and test
 
-Start **Build ValantiaOS** from the GitHub Actions tab. After a successful build, **Test ValantiaOS ISO** downloads that run's artifact and checks its checksum, root filesystem configuration, kernel/initrd names, GRUB menu, and UEFI boot screenshot. Artifacts are retained for seven days. Do not treat an untested ISO as a release.
+Start **Build ValantiaOS** from the GitHub Actions tab. After a successful build, **Test ValantiaOS ISO** downloads that run's artifact and checks its checksum, root filesystem configuration, kernel/initrd names, rendered UEFI GRUB theme, boot logs, and live XFCE processes, themes, wallpaper, and launcher icons. It captures GRUB, boot/greeter, and desktop screenshots. Evidence is retained for seven days and linked from the passing test run. Do not treat an untested ISO as a release.
 
 For local builds, provide a unique `VALANTIA_VERSION` and run `scripts/build-iso.sh` inside a privileged Debian Trixie container. The script builds the custom Linux kernel and hybrid live ISO; this requires network access, substantial disk, memory, and CPU.
 

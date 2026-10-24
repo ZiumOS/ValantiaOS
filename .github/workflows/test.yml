@@ -52,9 +52,9 @@ jobs:
           iso_list="$(xorriso -indev "$iso" -find /live -type f -print 2>&1)"
           printf '%s\n' "$iso_list"
           grep -Eq '/live/vmlinuz-7\.2\.12-valantia-kern$' <<<"$iso_list"
-          grep -Eq '/live/initrd\.img-7\.2\.12-valantia-kern$' <<<"$iso_list"
+          grep -Eq '/live/initrd.img-7\.2\.12-valantia-kern$' <<<"$iso_list"
           grep -Eq '/live/vmlinuz$' <<<"$iso_list"
-          grep -Eq '/live/initrd\.img$' <<<"$iso_list"
+          grep -Eq '/live/initrd.img$' <<<"$iso_list"
           mkdir -p /tmp/valantia-iso-check
           xorriso -osirrox on -indev "$iso" -extract /boot/grub/grub.cfg /tmp/valantia-iso-check/grub.cfg >/dev/null 2>&1
           grep -q 'ValantiaOS custom kernel' /tmp/valantia-iso-check/grub.cfg
@@ -84,17 +84,38 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Install QEMU, OVMF and OCR tools
-        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 ovmf tesseract-ocr
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 ovmf tesseract-ocr python3-pil
 
-      - name: Boot UEFI ISO, detect GRUB and desktop, capture screenshot
+      - name: Boot UEFI ISO and verify GRUB, greeter, and desktop
         shell: bash
         run: |
           set -euo pipefail
           iso="$(find iso -type f -name 'ValantiaOS-*.iso' -print -quit)"
           [[ -n "$iso" ]]
           ovmf_code="$(find /usr/share/OVMF -type f \( -iname '*CODE*.fd' -o -iname 'OVMF.fd' \) -print -quit)"
-          [[ -n "$ovmf_code" ]] || { echo 'OVMF firmware not found' >&2; exit 1; }
-          cp "$ovmf_code" OVMF_VARS.fd
+          ovmf_vars="$(find /usr/share/OVMF -type f -iname '*VARS*.fd' -print -quit)"
+          [[ -n "$ovmf_code" && -n "$ovmf_vars" ]] || { echo 'OVMF firmware files not found' >&2; exit 1; }
+          cp "$ovmf_vars" OVMF_VARS.fd
+          cat > qmp.py <<'PY'
+          import json, socket, sys
+          command = sys.argv[1]
+          args = json.loads(sys.argv[2]) if len(sys.argv) > 2 else {}
+          sock = socket.socket(socket.AF_UNIX)
+          sock.settimeout(15)
+          sock.connect('qemu-qmp.sock')
+          stream = sock.makefile('rwb', buffering=0)
+          stream.readline()
+          stream.write(b'{"execute":"qmp_capabilities"}\n')
+          stream.readline()
+          stream.write(json.dumps({'execute': command, 'arguments': args}).encode() + b'\n')
+          while True:
+              response = json.loads(stream.readline())
+              if 'return' in response:
+                  break
+              if 'error' in response:
+                  raise SystemExit(response['error'])
+          sock.close()
+          PY
           qemu-system-x86_64 \
             -machine q35,accel=tcg -m 4096 -smp 2 \
             -drive if=pflash,format=raw,readonly=on,file="$ovmf_code" \
@@ -105,42 +126,94 @@ jobs:
             >qemu-stderr.log 2>&1 &
           qemu_pid=$!
           trap 'kill "$qemu_pid" 2>/dev/null || true; wait "$qemu_pid" 2>/dev/null || true' EXIT
-          screen_detected=0
-          for attempt in $(seq 1 60); do
-            if python3 - <<'PY'
-          import socket, time
-          sock = socket.socket(socket.AF_UNIX)
-          try:
-              sock.connect("qemu-qmp.sock")
-          except (FileNotFoundError, ConnectionRefusedError):
-              raise SystemExit(1)
-          sock.settimeout(10)
-          sock.recv(4096)
-          sock.sendall(b'{"execute":"qmp_capabilities"}\n')
-          sock.recv(4096)
-          sock.sendall(b'{"execute":"screendump","arguments":{"filename":"qemu-screen.ppm"}}\n')
-          time.sleep(2)
-          sock.close()
-          PY
-            then
-              if test -s qemu-screen.ppm; then
-                tesseract qemu-screen.ppm stdout 2>/dev/null > qemu-screen.txt || true
-                if grep -qiE 'Valantia|Applications|Places|XFCE' qemu-screen.txt; then
-                  screen_detected=1
-                  break
-                fi
-              fi
-            fi
-            sleep 10
+          capture() { python3 qmp.py screendump "{\"filename\":\"$1\"}"; }
+          wait_for_ocr() {
+            local image=$1 pattern=$2 seconds=$3
+            for _ in $(seq "$seconds"); do
+              capture "$image"
+              tesseract "$image" "${image%.ppm}" 2>/dev/null || true
+              if grep -Eqi "$pattern" "${image%.ppm}.txt"; then return 0; fi
+              sleep 1
+            done
+            echo "Timed out waiting for screen text: $pattern" >&2
+            return 1
+          }
+          for _ in $(seq 60); do
+            capture grub.ppm && break
+            sleep 1
           done
-          test -s qemu-screen.ppm
-          [[ "$screen_detected" -eq 1 ]] || { cat qemu-screen.txt qemu-serial.log qemu-stderr.log; echo 'Graphical desktop not detected' >&2; exit 1; }
-          grep -Eqi 'not found|error: file.*initrd' qemu-serial.log qemu-stderr.log && { echo 'Boot log contains missing boot file error' >&2; exit 1; } || true
-          if ! grep -qiE 'Linux version 7\.2\.12-valantia-kern|7\.2\.12-valantia-kern' qemu-serial.log qemu-stderr.log; then
-            echo 'Custom Valantia kernel was not confirmed in serial/stderr logs' >&2
+          test -s grub.ppm || { echo 'QMP could not capture initial GRUB screen' >&2; exit 1; }
+          tesseract grub.ppm grub 2>/dev/null || true
+          grep -Eqi 'ValantiaOS' grub.txt || { echo 'GRUB screenshot OCR did not find ValantiaOS' >&2; exit 1; }
+          cp grub.ppm grub-menu.ppm
+          cp grub.txt grub-menu.txt
+          python3 - <<'PY'
+          from PIL import Image
+          image = Image.open('grub.ppm').convert('RGB')
+          pixels = list(image.getdata())
+          black = sum(1 for r, g, b in pixels if max(r, g, b) < 12)
+          colored = sum(1 for r, g, b in pixels if max(r, g, b) - min(r, g, b) > 24 and max(r, g, b) > 40)
+          black_ratio = black / len(pixels)
+          color_ratio = colored / len(pixels)
+          print(f'GRUB pixel check: black={black_ratio:.1%}; colored={color_ratio:.1%}')
+          if black_ratio > 0.92 or color_ratio < 0.01:
+              raise SystemExit('GRUB screenshot is black/plain; theme visuals not detected')
+          PY
+          python3 qmp.py send-key '{"keys":[{"key":"ret"}]}'
+          wait_for_ocr boot-greeter.ppm 'login|password|Applications|Places|Valantia' 240
+          cp boot-greeter.ppm boot-stage.ppm
+          cp boot-greeter.txt boot-stage.txt
+          if grep -Eqi 'error:|not found' qemu-serial.log qemu-stderr.log; then
+            echo 'Boot serial/stderr contains error: or not found' >&2
             exit 1
           fi
-          echo 'UEFI desktop screenshot captured and custom kernel detected.'
+          grep -Eqi 'Linux version 7\.2\.12-valantia-kern|7\.2\.12-valantia-kern' qemu-serial.log qemu-stderr.log || { echo 'Custom Valantia kernel was not confirmed in serial/stderr logs' >&2; exit 1; }
+          guest_ok=0
+          for _ in $(seq 240); do
+            capture desktop.ppm
+            tesseract desktop.ppm desktop 2>/dev/null || true
+            if grep -Eqi 'error:|not found' qemu-serial.log qemu-stderr.log; then
+              echo 'Boot serial/stderr contains error: or not found' >&2
+              exit 1
+            fi
+            if grep -q 'GUEST_CHECKS_COMPLETE PASS' qemu-serial.log; then guest_ok=1; break; fi
+            if grep -q 'GUEST_CHECKS_COMPLETE FAIL' qemu-serial.log; then break; fi
+            sleep 1
+          done
+          grep 'GUEST_CHECK' qemu-serial.log > guest-check-results.txt || true
+          [[ "$guest_ok" -eq 1 ]] || { cat guest-check-results.txt; echo 'Desktop guest checks did not complete successfully' >&2; exit 1; }
+          grep -Eqi 'Applications|Places' desktop.txt || { echo 'Desktop screenshot does not show XFCE panel text' >&2; exit 1; }
+          python3 - <<'PY'
+          from PIL import Image
+          image = Image.open('desktop.ppm').convert('RGB')
+          pixels = list(image.getdata())
+          colored = sum(1 for r, g, b in pixels if max(r, g, b) - min(r, g, b) > 24 and max(r, g, b) > 40)
+          ratio = colored / len(pixels)
+          print(f'Desktop colored-pixel ratio: {ratio:.1%}')
+          if ratio < 0.01:
+              raise SystemExit('Desktop screenshot appears blank/black')
+          PY
+          echo 'PASS: GRUB theme, kernel boot, live XFCE checks, and desktop screenshot.'
+
+      - name: Write test summary
+        if: always()
+        env:
+          RUN_ID: ${{ github.run_id }}
+          VERSION: ${{ needs.verify-artifact.outputs.version }}
+        run: |
+          {
+            echo '## ValantiaOS ISO test results'
+            echo "Test run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}"
+            echo "ISO version: ${VERSION}"
+            if [[ "${{ job.status }}" == success ]]; then
+              echo '- GRUB OCR and theme pixels: PASS'
+              echo '- QMP Enter boot, kernel, and serial checks: PASS'
+              echo '- Guest XFCE checks and desktop screenshot: PASS'
+            else
+              echo '- QEMU/visual/guest checks: FAIL or incomplete; inspect logs and available screenshots'
+            fi
+            echo "- Evidence artifact: qemu-ovmf-evidence-${VERSION}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload QEMU boot evidence
         if: always()
@@ -150,8 +223,13 @@ jobs:
           path: |
             qemu-serial.log
             qemu-stderr.log
-            qemu-screen.ppm
-            qemu-screen.txt
+            grub-menu.ppm
+            grub-menu.txt
+            boot-stage.ppm
+            boot-stage.txt
+            desktop.ppm
+            desktop.txt
+            guest-check-results.txt
           if-no-files-found: ignore
           retention-days: 7
 
@@ -169,7 +247,7 @@ jobs:
       - name: Update test status badge
         env:
           VERSION: ${{ needs.verify-artifact.outputs.version }}
-          BUILD_RUN_ID: ${{ needs.verify-artifact.outputs.run_id }}
+          TEST_RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
           export TESTED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
@@ -182,13 +260,13 @@ jobs:
           if start not in text or end not in text:
               raise SystemExit('README test status markers are missing')
           version = os.environ['VERSION']
-          url = f"https://github.com/ZiumOS/ValantiaOS/actions/runs/{os.environ['BUILD_RUN_ID']}"
+          url = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['TEST_RUN_ID']}"
           section = f'''{start}
           ![Tested](https://img.shields.io/badge/tested-passed-brightgreen)
 
           **Tested ISO:** `ValantiaOS V.({version.removeprefix('V.alpha.')})`<br>
-          **Passing run:** [Build and QEMU/OVMF test]({url})<br>
-          **Artifact:** `ValantiaOS-{version}-amd64.iso` in the passing build run.<br>
+          **Passing test and evidence:** [Test ValantiaOS ISO run]({url})<br>
+          **Artifact:** `qemu-ovmf-evidence-{version}` in the passing test run.<br>
           **Tests passed (UTC):** `{os.environ['TESTED_AT']}`
           {end}'''
           before, rest = text.split(start, 1)
