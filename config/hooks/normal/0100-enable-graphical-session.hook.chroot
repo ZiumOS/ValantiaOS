@@ -7,6 +7,15 @@ mkdir -p /etc/systemd/system/graphical.target.wants
 ln -sfn /lib/systemd/system/graphical.target /etc/systemd/system/default.target
 ln -sfn /lib/systemd/system/lightdm.service /etc/systemd/system/graphical.target.wants/lightdm.service
 ln -sfn /lib/systemd/system/lightdm.service /etc/systemd/system/display-manager.service
+# Configure GRUB theming in the installed system as well as the ISO menu.
+if [ -f /etc/default/grub ]; then
+  if grep -q '^GRUB_THEME=' /etc/default/grub; then
+    sed -i 's|^GRUB_THEME=.*|GRUB_THEME="/boot/grub/live-theme/theme.txt"|' /etc/default/grub
+  else
+    printf '%s\n' 'GRUB_THEME="/boot/grub/live-theme/theme.txt"' >> /etc/default/grub
+  fi
+fi
+
 install -d -m 0755 /usr/local/bin
 chmod 0755 /usr/local/bin/valantiaos-graphical-check
 install -d -m 0755 /etc/xdg/autostart

@@ -117,7 +117,10 @@ chmod 0755 config/hooks/normal/0200-flathub.hook.chroot
 
 # Render branded GRUB assets and embed the per-build version in the theme.
 python3 "${ROOT_DIR}/branding/grub/make-splash.py"
-mkdir -p config/bootloaders/grub-pc/live-theme config/bootloaders/isolinux config/includes.chroot/usr/share/pixmaps
+mkdir -p config/bootloaders/grub-pc/live-theme config/bootloaders/isolinux config/includes.binary/boot/grub/live-theme config/includes.chroot/usr/share/pixmaps
+cp config/bootloaders/grub-pc/live-theme/theme.txt config/includes.binary/boot/grub/live-theme/theme.txt
+cp config/bootloaders/grub-pc/splash.png config/includes.binary/boot/grub/splash.png
+cp config/bootloaders/grub-pc/splash.png config/includes.chroot/usr/share/pixmaps/valantiaos-logo.png
 cp config/bootloaders/grub-pc/templates/grub.cfg config/bootloaders/grub-pc/grub.cfg
 sed -i "s/V.alpha.placeholder/${VERSION}/g" config/bootloaders/grub-pc/grub.cfg
 cp config/bootloaders/isolinux/templates/live.cfg config/bootloaders/isolinux/live.cfg

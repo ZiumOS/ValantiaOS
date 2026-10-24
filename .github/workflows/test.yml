@@ -60,8 +60,10 @@ jobs:
           grep -q -- "--id 'ValantiaOS custom kernel'" /tmp/valantia-iso-check/grub.cfg
           grep -q -- "--id 'ValantiaOS Debian fallback'" /tmp/valantia-iso-check/grub.cfg
           grep -q '/live/initrd.img-7.2.12-valantia-kern' /tmp/valantia-iso-check/grub.cfg
-          theme="$(xorriso -indev "$iso" -find /boot/grub -name theme.txt -print 2>&1)"
-          grep -q 'theme.txt' <<<"$theme"
+          theme_files="$(xorriso -indev "$iso" -find /boot/grub/live-theme -type f -print 2>&1)"
+          grep -q '/boot/grub/live-theme/theme.txt' <<<"$theme_files" || { echo 'GRUB theme.txt is missing from ISO binary tree' >&2; exit 1; }
+          grep -q 'set theme="/boot/grub/live-theme/theme.txt"' /tmp/valantia-iso-check/grub.cfg || { echo 'GRUB config does not load the installed theme path' >&2; exit 1; }
+          grep -q '/boot/grub/splash.png' <<<"$(xorriso -indev "$iso" -find /boot/grub -name splash.png -print 2>&1)" || { echo 'GRUB splash image is missing from ISO binary tree' >&2; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "version=$version; ISO size=$bytes bytes"
 
@@ -208,7 +210,7 @@ jobs:
             if [[ "${{ job.status }}" == success ]]; then
               echo '- GRUB OCR and theme pixels: PASS'
               echo '- QMP Enter boot, kernel, and serial checks: PASS'
-              echo '- Guest XFCE checks and desktop screenshot: PASS'
+              echo '- Guest XFCE checks, GTK/XFWM theme, wallpaper, icons, panel, and desktop screenshot: PASS'
             else
               echo '- QEMU/visual/guest checks: FAIL or incomplete; inspect logs and available screenshots'
             fi

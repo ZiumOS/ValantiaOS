@@ -44,6 +44,11 @@ check_theme() {
   echo "Icon theme: $icon_theme; GTK theme: $gtk_theme"
   [[ -d "/usr/share/icons/$icon_theme" ]] || { echo "Missing icon theme directory: /usr/share/icons/$icon_theme"; return 1; }
   [[ -d "/usr/share/themes/$gtk_theme" ]] || { echo "Missing GTK theme directory: /usr/share/themes/$gtk_theme"; return 1; }
+  [[ -e "/usr/share/themes/$gtk_theme/gtk-3.0/gtk.css" ]] || { echo "Missing GTK3 stylesheet for theme: $gtk_theme"; return 1; }
+  local wm_theme
+  wm_theme=$(xfconf-query -c xfwm4 -p /general/theme) || return 1
+  echo "Window manager theme: $wm_theme"
+  [[ -f "/usr/share/themes/$wm_theme/xfwm4/themerc" ]] || { echo "Missing XFWM4 theme: /usr/share/themes/$wm_theme/xfwm4/themerc"; return 1; }
 }
 
 check_wallpaper() {
