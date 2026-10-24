@@ -42,13 +42,26 @@ fi
 cd "${KERNEL_BUILD_DIR}/src/linux-${KERNEL_VERSION}"
 make defconfig
 scripts/config --set-str LOCALVERSION "-valantia-kern"
-# Debian Live needs overlayfs to assemble the writable live root. Ensure the
-# custom kernel provides it and the squashfs/loop devices used by the image.
+# Enable the in-kernel graphics/input drivers needed for QEMU's std VGA,
+# UEFI GOP/simpledrm, and common physical framebuffers. Keep overlay and live
+# media support built in so early live-boot does not depend on module loading.
+scripts/config --enable DRM
+scripts/config --enable DRM_BOCHS
+scripts/config --enable DRM_VIRTIO_GPU
+scripts/config --enable DRM_SIMPLEDRM
+scripts/config --enable FB
+scripts/config --enable FB_EFI
+scripts/config --enable FB_VESA
+scripts/config --enable FB_VGA16
+scripts/config --enable INPUT_EVDEV
 scripts/config --enable OVERLAY_FS
 scripts/config --enable SQUASHFS
 scripts/config --enable SQUASHFS_XZ
 scripts/config --enable BLK_DEV_LOOP
 make olddefconfig
+for option in DRM DRM_BOCHS DRM_VIRTIO_GPU DRM_SIMPLEDRM FB INPUT_EVDEV OVERLAY_FS SQUASHFS BLK_DEV_LOOP; do
+  grep -Eq "^CONFIG_${option}=y$" .config || { echo "Required kernel option CONFIG_${option}=y was not enabled" >&2; exit 1; }
+done
 make CC=gcc bindeb-pkg -j"${KERNEL_JOBS}" KDEB_PKGVERSION="${KERNEL_VERSION}-1" KDEB_CHANGELOG_DIST=trixie
 
 mkdir -p /tmp/valantia-kernel-debs
@@ -72,7 +85,7 @@ for executable in \
   chmod 0755 "${executable}"
 done
 
-mkdir -p config/hooks/normal
+chmod 0755 config/hooks/normal/0030-ensure-live-kernels.hook.chroot
 chmod 0755 config/hooks/normal/0100-enable-graphical-session.hook.chroot
 
 # Embed the unique build version in ValantiaOS metadata and OS release metadata.
@@ -101,18 +114,17 @@ flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/fla
 HOOK
 chmod 0755 config/hooks/normal/0200-flathub.hook.chroot
 
-# Render the branded GRUB background.
-#
-# live-build's binary_grub_cfg stage copies the distribution's default
-# bootloader files into binary/boot/grub/ and then overlays
-# config/bootloaders/grub-pc/ on top of them, so the override tree only needs
-# the files we actually want to change: the background image and the theme.
-# There is no need to seed it from /usr/share/live/build.
-if [[ ! -f "${ROOT_DIR}/branding/grub/make-splash.py" ]]; then
-  printf 'Error: GRUB splash generator is missing under %s\\n' "${ROOT_DIR}" >&2
-  exit 1
-fi
+# Render branded GRUB assets and embed the per-build version in the theme.
 python3 "${ROOT_DIR}/branding/grub/make-splash.py"
+mkdir -p config/bootloaders/grub-pc/live-theme config/bootloaders/isolinux config/includes.chroot/usr/share/pixmaps
+cp config/bootloaders/grub-pc/grub.cfg config/bootloaders/grub-pc/grub.cfg.in
+sed -i "s/ValantiaOS V.alpha.placeholder/ValantiaOS ${VERSION}/g" config/bootloaders/grub-pc/grub.cfg.in
+cp config/bootloaders/grub-pc/grub.cfg.in config/bootloaders/grub-pc/grub.cfg
+cp config/bootloaders/isolinux/live.cfg config/bootloaders/isolinux/live.cfg.in
+sed -i "s/ValantiaOS V.alpha.placeholder/ValantiaOS ${VERSION}/g" config/bootloaders/isolinux/live.cfg.in
+cp config/bootloaders/isolinux/live.cfg.in config/bootloaders/isolinux/live.cfg
+cp config/bootloaders/grub-pc/splash.png config/includes.chroot/usr/share/pixmaps/valantiaos-logo.png
+sed -i "s/^set timeout=.*/set timeout=10/" config/bootloaders/grub-pc/grub.cfg
 
 cd "${ROOT_DIR}"
 lb config \

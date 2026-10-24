@@ -6,6 +6,8 @@
       <property name="show-home" type="bool" value="true"/>
       <property name="show-trash" type="bool" value="true"/>
       <property name="show-removable" type="bool" value="true"/>
+      <property name="size" type="uint" value="36"/>
+      <property name="tooltip-size" type="uint" value="96"/>
     </property>
   </property>
   <property name="backdrop" type="empty">
@@ -15,18 +17,8 @@
           <property name="image-style" type="int" value="5"/>
           <property name="image-show" type="bool" value="true"/>
           <property name="image-path" type="string" value="/usr/share/backgrounds/valantiaos/wall1.jpg"/>
-          <property name="rgba1" type="array">
-            <value type="double" value="0.090000"/>
-            <value type="double" value="0.110000"/>
-            <value type="double" value="0.170000"/>
-            <value type="double" value="1.000000"/>
-          </property>
-          <property name="rgba2" type="array">
-            <value type="double" value="0.090000"/>
-            <value type="double" value="0.110000"/>
-            <value type="double" value="0.170000"/>
-            <value type="double" value="1.000000"/>
-          </property>
+          <property name="rgba1" type="array"><value type="double" value="0.090000"/><value type="double" value="0.110000"/><value type="double" value="0.170000"/><value type="double" value="1.000000"/></property>
+          <property name="rgba2" type="array"><value type="double" value="0.090000"/><value type="double" value="0.110000"/><value type="double" value="0.170000"/><value type="double" value="1.000000"/></property>
         </property>
       </property>
     </property>

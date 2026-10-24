@@ -1,16 +1,45 @@
 #!/bin/sh
 set -eu
 
+mkdir -p /etc/default/grub.d
+cat > /etc/default/grub.d/99-valantiaos.cfg <<'GRUBCFG'
+GRUB_DISTRIBUTOR="ValantiaOS"
+GRUB_DEFAULT="ValantiaOS custom kernel"
+GRUB_TIMEOUT=10
+GRUB_TIMEOUT_STYLE=menu
+GRUB_THEME="/boot/grub/live-theme/theme.txt"
+GRUB_GFXMODE="auto"
+GRUB_TERMINAL_OUTPUT="gfxterm"
+GRUBCFG
+
+# Debian live-build's binary GRUB stage can replace generated GRUB menus.
+# Add ValantiaOS entries to the source generator so both BIOS and EFI menus
+# use actual live-build paths and have a known-good Debian fallback.
+mkdir -p /etc/grub.d
+cat > /etc/grub.d/40_custom <<'GRUB'
+#!/bin/sh
+exec tail -n +3 $0
+menuentry 'ValantiaOS custom kernel' --id 'ValantiaOS custom kernel' {
+    linux /live/vmlinuz-7.2.12-valantia-kern boot=live components quiet splash
+    initrd /live/initrd.img-7.2.12-valantia-kern
+}
+menuentry 'ValantiaOS custom kernel (fail-safe)' --id 'ValantiaOS custom kernel failsafe' {
+    linux /live/vmlinuz-7.2.12-valantia-kern boot=live components nomodeset noapic noacpi nosplash
+    initrd /live/initrd.img-7.2.12-valantia-kern
+}
+menuentry 'ValantiaOS Debian fallback kernel' --id 'ValantiaOS Debian fallback' {
+    linux /live/vmlinuz boot=live components quiet splash
+    initrd /live/initrd.img
+}
+GRUB
+chmod 0755 /etc/grub.d/40_custom
+update-grub
+
 systemctl set-default graphical.target
 systemctl enable lightdm.service
-
 mkdir -p /etc/systemd/system/graphical.target.wants
 ln -sfn /lib/systemd/system/graphical.target /etc/systemd/system/default.target
-ln -sfn /lib/systemd/system/lightdm.service \
-  /etc/systemd/system/graphical.target.wants/lightdm.service
-ln -sfn /lib/systemd/system/lightdm.service \
-  /etc/systemd/system/display-manager.service
-
+ln -sfn /lib/systemd/system/lightdm.service /etc/systemd/system/graphical.target.wants/lightdm.service
+ln -sfn /lib/systemd/system/lightdm.service /etc/systemd/system/display-manager.service
 install -d -m 0755 /var/lib/valantiaos
-printf '%s\n' 'graphical-session hook completed' \
-  > /var/lib/valantiaos/graphical-session-hook-ran
+printf '%s\n' 'graphical-session hook completed' > /var/lib/valantiaos/graphical-session-hook-ran

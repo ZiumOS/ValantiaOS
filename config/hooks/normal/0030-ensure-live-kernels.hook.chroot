@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+
+# Ensure every installed kernel has a matching initramfs before live-build's
+# binary stage collects /boot into the live media.
+found_custom=0
+found_debian=0
+for module_dir in /lib/modules/*; do
+  [ -d "$module_dir" ] || continue
+  kernel=${module_dir##*/}
+  [ -s "/boot/vmlinuz-$kernel" ] || { echo "Missing kernel image for $kernel" >&2; exit 1; }
+  if [ ! -s "/boot/initrd.img-$kernel" ]; then
+    update-initramfs -c -k "$kernel" || update-initramfs -u -k "$kernel"
+  fi
+  [ -s "/boot/initrd.img-$kernel" ] || { echo "Missing initramfs for $kernel" >&2; exit 1; }
+  case "$kernel" in
+    *-valantia-kern) found_custom=1 ;;
+    *) found_debian=1 ;;
+  esac
+done
+[ "$found_custom" -eq 1 ] || { echo 'ValantiaOS custom kernel is not installed' >&2; exit 1; }
+[ "$found_debian" -eq 1 ] || { echo 'Debian fallback kernel is not installed' >&2; exit 1; }

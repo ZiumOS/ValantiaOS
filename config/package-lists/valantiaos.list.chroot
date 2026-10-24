@@ -1,5 +1,7 @@
 
-# ValantiaOS - XFCE base
+live-boot
+initramfs-tools
+qemu-guest-agent
 xorg
 xserver-xorg
 xserver-xorg-core
@@ -7,10 +9,19 @@ xserver-xorg-input-libinput
 xserver-xorg-video-fbdev
 xinit
 xfce4
+xfce4-panel
+xfdesktop4
 xfce4-session
+xfwm4
+thunar
+xfce4-settings
 xfce4-terminal
 lightdm
 lightdm-gtk-greeter
+adwaita-icon-theme
+gnome-themes-extra
+fonts-dejavu-core
+fonts-liberation
 
 # Valantia desktop apps: GTK runtime, PolicyKit authorization, and controls.
 python3-gi
@@ -31,9 +42,7 @@ curl
 vim-tiny
 firefox-esr
 
-# live-config creates the live user at *boot* time (not build time) via its
-# user-setup component, which exits early unless this package is installed.
-# It is only a Recommends of live-config, so --apt-recommends false drops it.
+# live-config creates the live user at boot time from /etc/skel.
 user-setup
 
 # Graphics and Vulkan
@@ -45,6 +54,9 @@ firmware-linux
 firmware-amd-graphics
 firmware-intel-graphics
 firmware-misc-nonfree
+
+# Keep Debian's supported kernel as a fallback alongside the Valantia kernel.
+linux-image-amd64
 
 # Store dependency and system-wide Flatpak support
 flatpak

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import argparse
-import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -26,12 +26,16 @@ def check(root: Path, expected_version: str | None = None) -> None:
             installed.add(fields.get("Package", ""))
     required = {
         "lightdm", "lightdm-gtk-greeter", "xorg", "xserver-xorg-core",
-        "xserver-xorg-input-libinput", "xfce4-session", "dbus-x11",
+        "xserver-xorg-input-libinput", "xfce4-session", "xfce4-panel",
+        "xfdesktop4", "xfwm4", "thunar", "xfce4-settings", "dbus-x11",
+        "adwaita-icon-theme", "gnome-themes-extra", "fonts-dejavu-core",
     }
     missing = required - installed
     if missing:
         fail("packages not installed: " + ", ".join(sorted(missing)))
-    print("PASS: LightDM, greeter, Xorg, DBus, and XFCE packages are installed")
+    if "xfce4-panel" not in installed or "xfdesktop4" not in installed:
+        fail("XFCE panel/desktop packages are not installed")
+
 
     system_dir = root / "etc/systemd/system"
     default_target = system_dir / "default.target"
@@ -57,7 +61,21 @@ def check(root: Path, expected_version: str | None = None) -> None:
     xinitrc = root / "etc/skel/.xinitrc"
     if not xinitrc.is_file() or "exec startxfce4" not in xinitrc.read_text():
         fail("skel .xinitrc does not exec startxfce4")
-    print("PASS: LightDM autologin and XFCE session configuration are present")
+    greeter = root / "etc/lightdm/lightdm-gtk-greeter.conf"
+    if not greeter.is_file():
+        fail("LightDM GTK greeter theme configuration is missing")
+    greeter_config = greeter.read_text()
+    for setting in ("background=/usr/share/backgrounds/valantiaos/wall1.jpg", "theme-name=Adwaita-dark", "icon-theme-name=Adwaita"):
+        if setting not in greeter_config:
+            fail(f"LightDM greeter configuration missing {setting}")
+    panel_config = root / "etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml"
+    desktop_config = root / "etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml"
+    settings_config = root / "etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml"
+    if not all(path.is_file() for path in (panel_config, desktop_config, settings_config)):
+        fail("XFCE default panel, wallpaper, or theme config missing from /etc/skel")
+    if "clock" not in panel_config.read_text() or "tasklist" not in panel_config.read_text() or "wall1.jpg" not in desktop_config.read_text():
+        fail("XFCE panel or Valantia wallpaper configuration is incomplete")
+    print("PASS: LightDM autologin, greeter theme, and XFCE skel configuration are present")
 
     marker = root / "var/lib/valantiaos/graphical-session-hook-ran"
     if not marker.is_file():
@@ -86,6 +104,23 @@ def extract_and_check(iso: Path, expected_version: str | None = None) -> None:
         iso_tree = temp_path / "iso"
         iso_tree.mkdir()
         subprocess.run(["7z", "x", "-y", f"-o{iso_tree}", str(iso)], check=True, stdout=subprocess.DEVNULL)
+        grub_text = (iso_tree / "boot/grub/grub.cfg").read_text(errors="replace")
+        required_boot_files = (
+            "live/vmlinuz-7.2.12-valantia-kern",
+            "live/initrd.img-7.2.12-valantia-kern",
+            "live/vmlinuz",
+            "live/initrd.img",
+        )
+        for boot_file in required_boot_files:
+            if not any(path.name == Path(boot_file).name for path in (iso_tree / "live").glob("*") if path.is_file()):
+                fail(f"ISO /live is missing {Path(boot_file).name}")
+            if boot_file not in grub_text:
+                fail(f"GRUB configuration does not reference {boot_file}")
+        if "ValantiaOS custom kernel" not in grub_text or "ValantiaOS Debian fallback kernel" not in grub_text:
+            fail("ValantiaOS custom and Debian fallback menu entries are missing")
+        if "live-theme/theme.txt" not in grub_text and "set theme" not in grub_text:
+            fail("GRUB theme is not referenced by grub.cfg")
+        print("PASS: ISO contains matching custom/fallback kernel and initrd files, GRUB entries and theme")
         squashfs = next(iso_tree.rglob("filesystem.squashfs"), None)
         if squashfs is None:
             fail("ISO does not contain filesystem.squashfs")
