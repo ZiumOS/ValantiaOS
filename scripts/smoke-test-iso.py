@@ -130,7 +130,8 @@ def extract_and_check(iso: Path, expected_version: str | None = None) -> None:
         if squashfs is None:
             fail("ISO does not contain filesystem.squashfs")
         rootfs = temp_path / "rootfs"
-        subprocess.run(["unsquashfs", "-f", "-d", str(rootfs), str(squashfs)], check=True)
+        subprocess.run(["sudo", "unsquashfs", "-f", "-d", str(rootfs), str(squashfs)], check=True)
+        subprocess.run(["sudo", "chown", "-R", f"{os.getuid()}:{os.getgid()}", str(rootfs)], check=True)
         check(rootfs, expected_version)
 
 
