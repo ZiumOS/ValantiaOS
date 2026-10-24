@@ -57,8 +57,8 @@ jobs:
           grep -Eq '/live/initrd.img$' <<<"$iso_list"
           mkdir -p /tmp/valantia-iso-check
           xorriso -osirrox on -indev "$iso" -extract /boot/grub/grub.cfg /tmp/valantia-iso-check/grub.cfg >/dev/null 2>&1
-          grep -q 'ValantiaOS custom kernel' /tmp/valantia-iso-check/grub.cfg
-          grep -q 'ValantiaOS Debian fallback kernel' /tmp/valantia-iso-check/grub.cfg
+          grep -q -- "--id 'ValantiaOS custom kernel'" /tmp/valantia-iso-check/grub.cfg
+          grep -q -- "--id 'ValantiaOS Debian fallback'" /tmp/valantia-iso-check/grub.cfg
           grep -q '/live/initrd.img-7.2.12-valantia-kern' /tmp/valantia-iso-check/grub.cfg
           theme="$(xorriso -indev "$iso" -find /boot/grub -name theme.txt -print 2>&1)"
           grep -q 'theme.txt' <<<"$theme"

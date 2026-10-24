@@ -121,7 +121,7 @@ def extract_and_check(iso: Path, expected_version: str | None = None) -> None:
                 fail(f"ISO /live is missing {Path(boot_file).name}")
             if boot_file not in grub_text:
                 fail(f"GRUB configuration does not reference {boot_file}")
-        if "ValantiaOS custom kernel" not in grub_text or "ValantiaOS Debian fallback kernel" not in grub_text:
+        if "--id 'ValantiaOS custom kernel'" not in grub_text or "--id 'ValantiaOS Debian fallback'" not in grub_text:
             fail("ValantiaOS custom and Debian fallback menu entries are missing")
         if "live-theme/theme.txt" not in grub_text and "set theme" not in grub_text:
             fail("GRUB theme is not referenced by grub.cfg")
