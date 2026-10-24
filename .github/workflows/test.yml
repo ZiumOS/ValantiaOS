@@ -1,0 +1,198 @@
+name: Test ValantiaOS ISO
+
+on:
+  workflow_run:
+    workflows: [Build ValantiaOS]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify-artifact:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      run_id: ${{ github.event.workflow_run.id }}
+    steps:
+      - name: Checkout source used by build
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Download ISO artifacts from completed build run
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          path: artifacts
+
+      - name: Install ISO inspection tools
+        run: sudo apt-get update && sudo apt-get install -y squashfs-tools p7zip-full
+
+      - name: Validate ISO, checksum, size, and graphical rootfs
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          iso="$(find artifacts -type f -name 'ValantiaOS-*.iso' ! -name ValantiaOS.iso -print -quit)"
+          version_file="$(find artifacts -type f -name VERSION -print -quit)"
+          sums="$(find artifacts -type f -name SHA256SUMS -print -quit)"
+          [[ -n "$iso" && -n "$version_file" && -n "$sums" ]] || { echo "ISO, VERSION, or SHA256SUMS missing" >&2; exit 1; }
+          version="$(cat "$version_file")"
+          [[ "$version" == V.alpha.* ]] || { echo "Unexpected version: $version" >&2; exit 1; }
+          [[ "$(basename "$iso")" == "ValantiaOS-${version}-amd64.iso" ]] || { echo "ISO filename/version mismatch" >&2; exit 1; }
+          bytes="$(stat -c '%s' "$iso")"
+          (( bytes >= 100000000 && bytes <= 10000000000 )) || { echo "ISO size outside 100 MB-10 GB: $bytes" >&2; exit 1; }
+          [[ "$(basename "$sums")" == SHA256SUMS ]]
+          grep -Fq "${version}-amd64.iso" "$sums" || { echo "SHA256SUMS does not name versioned ISO" >&2; exit 1; }
+          (cd "$(dirname "$sums")" && sha256sum --check "$(basename "$sums")")
+          python3 scripts/smoke-test-iso.py "$iso" --version "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "ISO size: $bytes bytes; version: $version"
+
+  graphical-boot-test:
+    needs: [verify-artifact]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: 20
+    steps:
+      - name: Download the build ISO artifact
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.verify-artifact.outputs.run_id }}
+          name: ValantiaOS-${{ needs.verify-artifact.outputs.version }}-amd64
+          path: iso
+
+      - name: Install QEMU and OCR
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 tesseract-ocr
+
+      - name: Boot ISO and assert graphical desktop is visible
+        shell: bash
+        run: |
+          set -euo pipefail
+          iso="$(find iso -type f -name 'ValantiaOS-*.iso' -print -quit)"
+          [[ -n "$iso" ]]
+          qemu-system-x86_64 \
+            -machine q35,accel=tcg \
+            -m 4096 -smp 2 \
+            -display vnc=:1 -serial file:qemu-serial.log -monitor none \
+            -qmp unix:qemu-qmp.sock,server=on,wait=off \
+            -no-reboot -no-shutdown \
+            -cdrom "$iso" -boot d -vga std \
+            >qemu-stderr.log 2>&1 &
+          qemu_pid=$!
+          trap 'kill "$qemu_pid" 2>/dev/null || true; wait "$qemu_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if python3 - <<'PY'
+          import socket, time
+          sock = socket.socket(socket.AF_UNIX)
+          try:
+              sock.connect("qemu-qmp.sock")
+          except (FileNotFoundError, ConnectionRefusedError):
+              raise SystemExit(1)
+          sock.settimeout(10)
+          sock.recv(4096)
+          sock.sendall(b'{"execute":"qmp_capabilities"}\n')
+          sock.recv(4096)
+          sock.sendall(b'{"execute":"screendump","arguments":{"filename":"qemu-screen.ppm"}}\n')
+          time.sleep(2)
+          sock.close()
+          PY
+            then
+              if test -s qemu-screen.ppm; then
+              tesseract qemu-screen.ppm stdout 2>/dev/null > qemu-screen.txt || true
+              if grep -qiE 'Valantia|Applications|Places|XFCE' qemu-screen.txt; then
+                echo "Graphical desktop detected in QEMU screenshot"
+                exit 0
+              fi
+            fi
+          fi
+            sleep 10
+          done
+          cat qemu-screen.txt 2>/dev/null || true
+          cat qemu-serial.log qemu-stderr.log
+          echo "XFCE/LightDM desktop text not detected in QEMU screenshots" >&2
+          exit 1
+
+      - name: Upload QEMU test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qemu-boot-evidence-${{ needs.verify-artifact.outputs.version }}
+          path: |
+            qemu-serial.log
+            qemu-stderr.log
+            qemu-screen.ppm
+            qemu-screen.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+  update-readme:
+    needs: [verify-artifact, graphical-boot-test]
+    if: ${{ success() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout build source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+
+      - name: Update README tested status
+        env:
+          VERSION: ${{ needs.verify-artifact.outputs.version }}
+          BUILD_RUN_ID: ${{ needs.verify-artifact.outputs.run_id }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          export TESTED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          python3 - <<'PY'
+          import os
+          import textwrap
+          from pathlib import Path
+          readme = Path("README.md")
+          text = readme.read_text()
+          start = "<!-- TEST-STATUS:START -->"
+          end = "<!-- TEST-STATUS:END -->"
+          if start not in text or end not in text:
+              raise SystemExit("README test-status markers are missing")
+          version = os.environ["VERSION"]
+          run_id = os.environ["BUILD_RUN_ID"]
+          run_url = f"https://github.com/ZiumOS/ValantiaOS/actions/runs/{run_id}"
+          section = textwrap.dedent(f"""\
+          {start}
+          ![Tested](https://img.shields.io/badge/tested-passed-brightgreen)
+
+          **Tested ISO:** `{version}`  
+          **Passing build and test run:** [Actions run]({run_url})  
+          **ISO artifact:** download `ValantiaOS-{version}-amd64.iso` from the artifacts on that run.  
+          **Tests passed (UTC):** `{os.environ['TESTED_AT']}`
+          {end}
+          """)
+          before, remainder = text.split(start, 1)
+          _, after = remainder.split(end, 1)
+          readme.write_text(before + section + after)
+          PY
+
+      - name: Commit README status
+        env:
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs: update test status [skip ci]'
+            git push origin "HEAD:${BRANCH}"
+          fi

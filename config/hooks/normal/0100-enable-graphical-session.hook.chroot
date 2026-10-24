@@ -1,4 +1,16 @@
 #!/bin/sh
-set -e
+set -eu
+
 systemctl set-default graphical.target
 systemctl enable lightdm.service
+
+mkdir -p /etc/systemd/system/graphical.target.wants
+ln -sfn /lib/systemd/system/graphical.target /etc/systemd/system/default.target
+ln -sfn /lib/systemd/system/lightdm.service \
+  /etc/systemd/system/graphical.target.wants/lightdm.service
+ln -sfn /lib/systemd/system/lightdm.service \
+  /etc/systemd/system/display-manager.service
+
+install -d -m 0755 /var/lib/valantiaos
+printf '%s\n' 'graphical-session hook completed' \
+  > /var/lib/valantiaos/graphical-session-hook-ran

@@ -1,4 +1,3 @@
-
 name: Build ValantiaOS
 
 on:
@@ -11,6 +10,8 @@ on:
       - "config/**"
       - "scripts/**"
       - ".github/workflows/build-iso.yml"
+      - ".github/workflows/test.yml"
+      - "README.md"
 
 permissions:
   contents: read
@@ -23,10 +24,15 @@ jobs:
   build-iso:
     runs-on: ubuntu-latest
     timeout-minutes: 360
-
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Create unique build version
+        id: version
+        run: |
+          version="V.alpha.$(date -u +'%m.%Y.%H').${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Cache upstream kernel source
         uses: actions/cache@v4
@@ -35,8 +41,11 @@ jobs:
           key: linux-source-7.2.12-${{ runner.os }}-${{ runner.arch }}
 
       - name: Build Debian Live ISO
+        env:
+          VALANTIA_VERSION: ${{ steps.version.outputs.version }}
         run: |
           docker run --privileged --rm \
+            -e VALANTIA_VERSION \
             -v "$GITHUB_WORKSPACE:/work" \
             -w /work \
             debian:trixie \
@@ -46,9 +55,11 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: ValantiaOS-0.1.0-amd64
+          name: ValantiaOS-${{ steps.version.outputs.version }}-amd64
           path: |
-            output/ValantiaOS-0.1.0-amd64.iso
+            output/ValantiaOS-${{ steps.version.outputs.version }}-amd64.iso
+            output/ValantiaOS.iso
+            output/VERSION
             output/SHA256SUMS
           if-no-files-found: error
           retention-days: 7

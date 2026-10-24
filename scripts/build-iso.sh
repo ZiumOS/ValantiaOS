@@ -8,7 +8,8 @@
 
 set -Eeuo pipefail
 
-ISO_NAME="ValantiaOS-0.1.0-amd64.iso"
+VERSION="${VALANTIA_VERSION:?VALANTIA_VERSION must be set by the build workflow}"
+ISO_NAME="ValantiaOS-${VERSION}-amd64.iso"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
@@ -70,7 +71,26 @@ for executable in \
   fi
   chmod 0755 "${executable}"
 done
+
+mkdir -p config/hooks/normal
 chmod 0755 config/hooks/normal/0100-enable-graphical-session.hook.chroot
+
+# Embed the unique build version in ValantiaOS metadata and OS release metadata.
+cat > config/includes.chroot/etc/valantiaos-release <<EOF
+NAME="ValantiaOS"
+VERSION="${VERSION}"
+VERSION_ID="${VERSION}"
+BASE="Debian GNU/Linux 13 (Trixie)"
+EDITION="Gaming"
+ARCHITECTURE="amd64"
+EOF
+cat > config/hooks/normal/0050-set-os-release-version.hook.chroot <<HOOK
+#!/bin/sh
+set -eu
+sed -i '/^VERSION=/d; /^VERSION_ID=/d' /etc/os-release
+printf 'VERSION="%s"\\nVERSION_ID="%s"\\n' '${VERSION}' '${VERSION}' >> /etc/os-release
+HOOK
+chmod 0755 config/hooks/normal/0050-set-os-release-version.hook.chroot
 
 # Configure Flathub as a system-wide Flatpak remote in the live image.
 mkdir -p config/hooks/normal
@@ -99,6 +119,9 @@ lb config \
   --distribution trixie \
   --architectures amd64 \
   --binary-image iso-hybrid \
+  --iso-application "ValantiaOS ${VERSION}" \
+  --iso-publisher "ZiumOS" \
+  --iso-volume "${VERSION}" \
   --archive-areas \
     "main contrib non-free non-free-firmware" \
   --apt-recommends false
@@ -110,5 +133,6 @@ test -s "${ROOT_DIR}/live-image-amd64.hybrid.iso"
 mkdir -p "${ROOT_DIR}/output"
 
 cp "${ROOT_DIR}/live-image-amd64.hybrid.iso" "${ROOT_DIR}/output/${ISO_NAME}"
-
+cp "${ROOT_DIR}/output/${ISO_NAME}" "${ROOT_DIR}/output/ValantiaOS.iso"
 (cd "${ROOT_DIR}/output" && sha256sum "${ISO_NAME}" > SHA256SUMS)
+printf '%s\n' "${VERSION}" > "${ROOT_DIR}/output/VERSION"

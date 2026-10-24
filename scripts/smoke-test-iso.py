@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""Validate the graphical boot configuration in the ISO's live rootfs."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+
+
+def fail(message: str) -> None:
+    raise SystemExit(f"SMOKE TEST FAILED: {message}")
+
+
+def check(root: Path, expected_version: str | None = None) -> None:
+    status_path = root / "var/lib/dpkg/status"
+    if not status_path.is_file():
+        fail("rootfs has no dpkg status database")
+    installed = set()
+    for paragraph in status_path.read_text(errors="replace").split("\n\n"):
+        fields = dict(line.split(": ", 1) for line in paragraph.splitlines() if ": " in line)
+        if fields.get("Status") == "install ok installed":
+            installed.add(fields.get("Package", ""))
+    required = {
+        "lightdm", "lightdm-gtk-greeter", "xorg", "xserver-xorg-core",
+        "xserver-xorg-input-libinput", "xfce4-session", "dbus-x11",
+    }
+    missing = required - installed
+    if missing:
+        fail("packages not installed: " + ", ".join(sorted(missing)))
+    print("PASS: LightDM, greeter, Xorg, DBus, and XFCE packages are installed")
+
+    system_dir = root / "etc/systemd/system"
+    default_target = system_dir / "default.target"
+    if not default_target.is_symlink() or os.readlink(default_target) != "/lib/systemd/system/graphical.target":
+        fail("default.target does not point to graphical.target")
+    lightdm_wants = system_dir / "graphical.target.wants/lightdm.service"
+    if not lightdm_wants.is_symlink() or os.readlink(lightdm_wants) != "/lib/systemd/system/lightdm.service":
+        fail("LightDM is not enabled for graphical.target")
+    manager = system_dir / "display-manager.service"
+    if not manager.is_symlink() or os.readlink(manager) != "/lib/systemd/system/lightdm.service":
+        fail("display-manager.service does not resolve to LightDM")
+    print("PASS: graphical.target default and LightDM enablement are correct")
+
+    conf = root / "etc/lightdm/lightdm.conf.d/50-valantia-autologin.conf"
+    if not conf.is_file():
+        fail("LightDM autologin configuration is missing")
+    contents = conf.read_text()
+    for setting in ("autologin-user=user", "autologin-session=xfce", "autologin-user-timeout=0"):
+        if setting not in contents:
+            fail(f"LightDM autologin missing {setting}")
+    if not (root / "usr/share/xsessions/xfce.desktop").is_file():
+        fail("XFCE X session file is missing")
+    xinitrc = root / "etc/skel/.xinitrc"
+    if not xinitrc.is_file() or "exec startxfce4" not in xinitrc.read_text():
+        fail("skel .xinitrc does not exec startxfce4")
+    print("PASS: LightDM autologin and XFCE session configuration are present")
+
+    marker = root / "var/lib/valantiaos/graphical-session-hook-ran"
+    if not marker.is_file():
+        fail("graphical-session chroot hook did not leave its completion marker")
+    print("PASS: graphical-session hook ran during image construction")
+
+    release = root / "etc/os-release"
+    valantia_release = root / "etc/valantiaos-release"
+    if not release.is_file() or not valantia_release.is_file():
+        fail("OS release metadata is missing")
+    release_contents = release.read_text()
+    version_id = next((line.split('=', 1)[1].strip('"') for line in release_contents.splitlines() if line.startswith("VERSION_ID=")), None)
+    version = next((line.split('=', 1)[1].strip('"') for line in release_contents.splitlines() if line.startswith("VERSION=")), None)
+    if not version or not version_id or not version.startswith("V.alpha.") or version_id != version:
+        fail("versioned VERSION/VERSION_ID missing or inconsistent in /etc/os-release")
+    if expected_version and (version != expected_version or f'VERSION="{expected_version}"' not in valantia_release.read_text()):
+        fail("build version does not match /etc/os-release and /etc/valantiaos-release")
+    print("PASS: unique build version is present in OS release metadata")
+
+
+def extract_and_check(iso: Path, expected_version: str | None = None) -> None:
+    if shutil.which("7z") is None or shutil.which("unsquashfs") is None:
+        fail("requires 7z and unsquashfs")
+    with tempfile.TemporaryDirectory(prefix="valantia-iso-check-") as temp:
+        temp_path = Path(temp)
+        iso_tree = temp_path / "iso"
+        iso_tree.mkdir()
+        subprocess.run(["7z", "x", "-y", f"-o{iso_tree}", str(iso)], check=True, stdout=subprocess.DEVNULL)
+        squashfs = next(iso_tree.rglob("filesystem.squashfs"), None)
+        if squashfs is None:
+            fail("ISO does not contain filesystem.squashfs")
+        rootfs = temp_path / "rootfs"
+        subprocess.run(["unsquashfs", "-f", "-d", str(rootfs), str(squashfs)], check=True)
+        check(rootfs, expected_version)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("iso", type=Path)
+    parser.add_argument("--root", type=Path)
+    parser.add_argument("--version", help="expected V.alpha build version")
+    args = parser.parse_args()
+    if args.root:
+        check(args.root.resolve(), args.version)
+    else:
+        if not args.iso.is_file():
+            fail(f"ISO missing: {args.iso}")
+        extract_and_check(args.iso.resolve(), args.version)
+    print("SMOKE TEST PASSED")
+
+
+if __name__ == "__main__":
+    main()

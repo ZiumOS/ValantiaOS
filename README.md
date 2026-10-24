@@ -20,14 +20,14 @@ ValantiaOS is a custom live operating system built on Debian GNU/Linux 13 (Trixi
 
 | Item | Current configuration |
 | --- | --- |
-| Project version | `0.1.0` |
+| Project version | Per-build: `ValantiaOS V.alpha.<month>.<year>.<hour>.<run>.<attempt>` (UTC) |
 | Debian base | Debian GNU/Linux 13 (Trixie) |
 | Target architecture | AMD64 (`x86_64`) |
 | Desktop | XFCE with ValantiaOS settings and wallpapers |
 | Kernel build target | Linux `7.2.12`, local version `-valantia-kern` (see build script) |
 | Image type | Hybrid live ISO |
 | Build tooling | Debian Live (`live-build`) |
-| Automated builds | GitHub Actions workflow |
+| Automated build and test | GitHub Actions build followed by separate ISO test workflow |
 | Installer | No configured disk installer in the current image |
 
 ## What is included?
@@ -44,48 +44,56 @@ ValantiaOS is a custom live operating system built on Debian GNU/Linux 13 (Trixi
 
 ## Download and verify
 
-Build artifacts are produced by the **Build ValantiaOS** GitHub Actions workflow. Open the repository's **Actions** tab, select a successful workflow run, then download its ISO artifact. The script writes the ISO and `SHA256SUMS` into `output/` in the build workspace; artifact availability depends on workflow configuration and retention.
+The **Build ValantiaOS** workflow uploads each ISO as a uniquely versioned artifact named `ValantiaOS-<version>-amd64`. Each artifact contains the versioned ISO, a stable `ValantiaOS.iso` alias, a `VERSION` file, and `SHA256SUMS`. The separate **Test ValantiaOS ISO** workflow checks the checksum and image, inspects the root filesystem, and boots the ISO in QEMU. Only a build whose tests pass is linked in the status below; the Actions artifact is retained for seven days.
 
-To verify a downloaded ISO, put `SHA256SUMS` in the same directory and run:
+## Test status
+
+<!-- TEST-STATUS:START -->
+Tests have not yet been recorded as passing for a build.
+<!-- TEST-STATUS:END -->
+
+To verify a downloaded ISO locally, place `SHA256SUMS` beside the ISO and run:
 
 ```sh
 sha256sum --check SHA256SUMS
 ```
 
-Only use an ISO from a workflow run you trust. A checksum detects accidental corruption; it does not by itself establish who produced the image.
+A checksum detects accidental corruption; it does not by itself establish who produced the image.
 
 ## Build the ISO
 
-The project build script is `scripts/build-iso.sh`. It is designed to run as root inside a Debian Trixie container. The script installs build dependencies, downloads and builds the pinned kernel, configures live-build, builds the hybrid ISO, and generates a SHA-256 checksum.
+The project build script is `scripts/build-iso.sh`. It is designed to run as root inside a Debian Trixie container. The GitHub Actions workflow generates a unique version using UTC time plus the GitHub run number and attempt, then passes it into the script. Building the custom kernel can take a while and requires substantial disk space, memory, and CPU.
 
 ### GitHub Actions
 
 1. Open the repository's **Actions** tab.
-2. Select **Build ValantiaOS**.
-3. Choose **Run workflow** (if enabled for your branch).
-4. Wait for the job to finish and download the artifact from the run.
+2. Select **Build ValantiaOS** and run the workflow (or push a change to the configured paths on `main`).
+3. When it succeeds, **Test ValantiaOS ISO** starts automatically against that exact run's artifact.
+4. Download the ISO from the build run only after its associated test workflow succeeds.
 
 ### Local build with Docker
 
-Run from the repository root on a machine with Docker and network access:
+Set a unique version string and run from the repository root on a machine with Docker and network access:
 
 ```sh
+export VALANTIA_VERSION="V.alpha.$(date -u +'%m.%Y.%H').local.$(date -u +'%M%S')"
 docker run --privileged --rm \
+  -e VALANTIA_VERSION \
   -v "$PWD:/work" \
   -w /work \
   debian:trixie \
   bash -euxo pipefail scripts/build-iso.sh
 ```
 
-The output is placed in `output/` as `ValantiaOS-0.1.0-amd64.iso` and `SHA256SUMS`. Building the custom kernel can take a while and requires substantial disk space, memory, and CPU. The container needs elevated privileges because `live-build` uses system-level build operations.
+The ISO and checksum are written to `output/`. The container needs elevated privileges because `live-build` uses system-level build operations.
 
 ### Kernel and live-boot notes
 
-The kernel version is pinned in `scripts/build-iso.sh`; update that version deliberately and test the resulting ISO before treating it as a release. The build enables `OVERLAY_FS`, `SQUASHFS`, `SQUASHFS_XZ`, and `BLK_DEV_LOOP` because a live system needs these facilities to assemble its writable root filesystem. This is a build-time configuration, **not proof that the ISO boots correctly**. If live-boot reports `overlay not available`, inspect the kernel actually included in the image and the initramfs/module configuration together; check `uname -r`, `/lib/modules/`, `modprobe overlay`, and `/proc/filesystems` from the initramfs shell where possible.
+The kernel version is pinned in `scripts/build-iso.sh`; update it deliberately and test the resulting ISO before treating it as a release. The build enables `OVERLAY_FS`, `SQUASHFS`, `SQUASHFS_XZ`, and `BLK_DEV_LOOP` because a live system needs these facilities to assemble its writable root filesystem. These build settings are not proof that every machine boots correctly.
 
 ### Build cache note
 
-The workflow caches the downloaded kernel source archive rather than the generated kernel build tree. Kernel builds create root-owned and runner-specific artifacts; attempting to archive those artifacts during post-job cache cleanup can fail with `Permission denied` (for example, on `usr/initramfs_data.cpio`). The Node.js `punycode` deprecation warning is separate and is not, by itself, the cause of that tar failure.
+The workflow caches the downloaded kernel source archive rather than the generated kernel build tree. Kernel builds create root-owned and runner-specific artifacts; trying to archive those artifacts during cache cleanup can fail with `Permission denied`. The Node.js `punycode` deprecation warning is separate and is not, by itself, the cause of a tar failure.
 
 ## Trying the live system
 
@@ -110,7 +118,7 @@ This roadmap describes **proposed development priorities**, not features already
 
 - Reproduce live-boot failures in both virtual machines and representative physical hardware.
 - Verify that the ISO contains a matching kernel and initramfs and that overlayfs, SquashFS, and loop devices are usable at boot.
-- Add automated checks for ISO creation, artifact presence, checksum generation, and basic image metadata.
+- Expand automated checks for ISO creation, artifact presence, checksum generation, QEMU boot, and desktop startup.
 - Keep Actions cache contents limited to portable source downloads; make cache failures distinguishable from build failures.
 - Document tested firmware, boot modes, and known hardware-specific issues.
 
